@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+export QT_QPA_PLATFORM=wayland
+export XDG_CURRENT_DESKTOP=KDE
+export XDG_SESSION_DESKTOP=KDE
+export KDE_FULL_SESSION=true
+# Minimal mobile shell, intentionally independent of systemd user services.
+exec plasmashell -p org.kde.plasma.mobileshell

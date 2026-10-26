@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ $(id -u) == 0 ]]; then
+    echo 'Enter the container as user arch, not root.' >&2
+    exit 1
+fi
+export DISPLAY="${DISPLAY:-:0}"
+XDG_RUNTIME_DIR="/tmp/archohall-runtime-$(id -u)"
+export XDG_RUNTIME_DIR
+mkdir -p "$XDG_RUNTIME_DIR"
+chmod 700 "$XDG_RUNTIME_DIR"
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=KDE
+export XDG_SESSION_DESKTOP=KDE
+export XKB_CONFIG_ROOT=/usr/share/X11/xkb
+export PULSE_SERVER="${PULSE_SERVER:-tcp:127.0.0.1}"
+unset WAYLAND_DISPLAY WAYLAND_SOCKET DBUS_SESSION_BUS_ADDRESS SESSION_MANAGER
+case "${ARCHOHALL_RENDERER:-software}" in
+    software)
+        export LIBGL_ALWAYS_SOFTWARE=1
+        export GALLIUM_DRIVER=llvmpipe
+        ;;
+    auto) unset LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER ;;
+    *) echo 'ARCHOHALL_RENDERER must be software or auto.' >&2; exit 2 ;;
+esac
+for dimension in "${ARCHOHALL_WIDTH:-720}" "${ARCHOHALL_HEIGHT:-1280}"; do
+    [[ $dimension =~ ^[1-9][0-9]{1,3}$ ]] || { echo 'Invalid dimensions.' >&2; exit 2; }
+done
+xdpyinfo -display "$DISPLAY" >/dev/null || {
+    echo 'Cannot reach Termux:X11. Start the host server and use --shared-tmp.' >&2
+    exit 1
+}
+exec dbus-run-session -- kwin_wayland \
+    --x11-display "$DISPLAY" \
+    --width "${ARCHOHALL_WIDTH:-720}" --height "${ARCHOHALL_HEIGHT:-1280}" \
+    --socket wayland-archohall --xwayland \
+    --exit-with-session /usr/local/bin/archohall-session

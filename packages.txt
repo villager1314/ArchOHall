@@ -1,0 +1,22 @@
+# Explicit packages; pacman resolves the complete dependency set.
+base
+archlinuxarm-keyring
+plasma-mobile
+plasma-workspace
+kwin
+qt6-wayland
+xorg-xwayland
+xorg-xdpyinfo
+dbus
+mesa
+mesa-utils
+konsole
+dolphin
+sudo
+curl
+ca-certificates
+tar
+xz
+noto-fonts
+noto-fonts-cjk
+noto-fonts-emoji
