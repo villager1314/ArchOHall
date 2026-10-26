@@ -22,6 +22,7 @@ if command -v pulseaudio >/dev/null; then
         pactl load-module module-native-protocol-tcp listen=127.0.0.1 port=4713 auth-ip-acl=127.0.0.1 >/dev/null
     fi
 fi
+proot-distro login "${ARCHOHALL_CONTAINER:-archohall}" -- /usr/local/bin/archohall-init
 exec proot-distro login "${ARCHOHALL_CONTAINER:-archohall}" --user arch --shared-tmp -- \
     /usr/bin/env DISPLAY="$DISPLAY" PULSE_SERVER=tcp:127.0.0.1:4713 \
     ARCHOHALL_RENDERER="${ARCHOHALL_RENDERER:-software}" \

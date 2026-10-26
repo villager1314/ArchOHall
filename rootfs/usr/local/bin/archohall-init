@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Run once as the container's simulated root before starting the desktop user.
+set -euo pipefail
+if [[ ! -s /etc/machine-id ]]; then
+    rm -f /etc/machine-id
+    dbus-uuidgen --ensure=/etc/machine-id
+fi
+mkdir -p /var/lib/dbus
+ln -sfn /etc/machine-id /var/lib/dbus/machine-id

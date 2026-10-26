@@ -43,7 +43,8 @@ cp -L /etc/resolv.conf "$root/etc/resolv.conf"
 # HTTPS only; do not disable pacman's package signature checking.
 # shellcheck disable=SC2016 # pacman expands these variables, not this shell.
 printf 'Server = https://ca.us.mirror.archlinuxarm.org/$arch/$repo\n' > "$root/etc/pacman.d/mirrorlist"
-cp -a "$project/rootfs/." "$root/"
+# Do not copy the checkout user's ownership onto / or /usr in the image.
+cp -a --no-preserve=ownership "$project/rootfs/." "$root/"
 install -m 644 "$project/packages.txt" "$root/tmp/archohall-packages.txt"
 install -m 755 "$project/scripts/provision.sh" "$root/tmp/archohall-provision.sh"
 # Qt tools used for validation must not try to connect to the runner display.
