@@ -10,7 +10,9 @@ out="$project/dist"
 [[ ! -e $work && ! -e $out ]] || { echo 'Use a fresh checkout to build.' >&2; exit 1; }
 mkdir -p "$root" "$out" "$work/gnupg"
 chmod 700 "$work/gnupg"
-source_url=https://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz
+# The os.archlinuxarm.org alias currently has a mismatched TLS certificate.
+# Use the official California mirror while retaining TLS and GPG verification.
+source_url=https://ca.us.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz
 fingerprint=68B3537F39A313B3E574D06777193F152BDBE6A6
 download() { curl --fail --location --proto '=https' --proto-redir '=https' --retry 4 --connect-timeout 30 "$1" -o "$2"; }
 download "$source_url" "$work/base.tar.gz"
@@ -37,7 +39,7 @@ rm -f "$root/etc/resolv.conf"
 cp -L /etc/resolv.conf "$root/etc/resolv.conf"
 # HTTPS only; do not disable pacman's package signature checking.
 # shellcheck disable=SC2016 # pacman expands these variables, not this shell.
-printf 'Server = https://mirror.archlinuxarm.org/$arch/$repo\n' > "$root/etc/pacman.d/mirrorlist"
+printf 'Server = https://ca.us.mirror.archlinuxarm.org/$arch/$repo\n' > "$root/etc/pacman.d/mirrorlist"
 cp -a "$project/rootfs/." "$root/"
 install -m 644 "$project/packages.txt" "$root/tmp/archohall-packages.txt"
 install -m 755 "$project/scripts/provision.sh" "$root/tmp/archohall-provision.sh"
