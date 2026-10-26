@@ -24,11 +24,14 @@ gpg --homedir "$work/gnupg" --batch --import "$work/builder.asc"
 gpg --homedir "$work/gnupg" --batch --verify "$work/base.tar.gz.sig" "$work/base.tar.gz"
 tar --numeric-owner --xattrs --acls -xpf "$work/base.tar.gz" -C "$root" --exclude='./dev/*' --exclude='dev/*'
 cleanup() {
-    for target in "$root/proc" "$root/dev"; do
+    # pacman-key starts GnuPG helpers that otherwise retain chroot resources.
+    chroot "$root" /usr/bin/gpgconf --homedir /etc/pacman.d/gnupg --kill all || true
+    for target in "$root/proc" "$root/dev" "$root"; do
         if mountpoint -q "$target"; then umount -R "$target"; fi
     done
 }
 trap cleanup EXIT
+mount --bind "$root" "$root"
 mkdir -p "$root/dev" "$root/proc" "$root/sys" "$root/tmp"
 chmod 1777 "$root/tmp"
 mount --rbind /dev "$root/dev"
