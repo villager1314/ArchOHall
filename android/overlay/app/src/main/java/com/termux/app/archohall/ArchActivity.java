@@ -52,6 +52,8 @@ public final class ArchActivity extends AppCompatActivity {
         button(controls,"显示设置",v->startActivity(new Intent(this,com.termux.x11.LoriePreferences.class)));
         LinearLayout operation=card(content);phase=text(operation,"等待准备",20);progress=new LinearProgressIndicator(this);progress.setMax(1000);operation.addView(progress,new LinearLayout.LayoutParams(-1,dp(12)));detail=text(operation,"",14);
         cancelButton=button(operation,"取消当前操作",v->startService(new Intent(this,ImportService.class).setAction(ImportService.CANCEL)));
+        detail.setMaxLines(3);detail.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        View progressCard=(View)operation.getParent();content.removeView(progressCard);content.addView(progressCard,2);
         LinearLayout logging=card(content);text(logging,"操作日志",20);ScrollView logScroll=new ScrollView(this);logs=new TextView(this);logs.setTextSize(12);logs.setTypeface(Typeface.MONOSPACE);logs.setTextIsSelectable(true);logs.setPadding(dp(8),dp(8),dp(8),dp(8));logScroll.addView(logs);logging.addView(logScroll,new LinearLayout.LayoutParams(-1,dp(240)));
         button(logging,"导出导入日志",v->startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("text/plain").putExtra(Intent.EXTRA_TITLE,"archohall-import.log"),12));
         button(logging,"查看桌面日志",v->{File log=new File(getFilesDir(),"home/.archohall/session.log");try{String s=log.isFile()?new String(java.nio.file.Files.readAllBytes(log.toPath()),java.nio.charset.StandardCharsets.UTF_8):"尚无桌面日志";if(s.length()>30000)s=s.substring(s.length()-30000);new MaterialAlertDialogBuilder(this).setTitle("桌面日志（末尾）").setMessage(s).setPositiveButton("关闭",null).show();}catch(Exception e){error(e);}});

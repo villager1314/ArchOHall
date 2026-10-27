@@ -29,7 +29,9 @@ jobs:
       - name: Compose pinned sources
         run: python3 android/prepare_project.py
       - name: Build offline runtime
-        run: python3 android/build_runtime.py
+        run: |
+          python3 android/build_runtime.py
+          python3 android/verify_runtime.py
       - name: Test importer and build APK
         working-directory: .android-build/project
         run: |
@@ -59,4 +61,5 @@ jobs:
           path: |
             .android-build/project/app/build/reports/tests/
             .android-build/project/app/build/test-results/
+            .android-build/project/app/build/screenshots/
           if-no-files-found: ignore

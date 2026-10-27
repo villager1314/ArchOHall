@@ -38,12 +38,12 @@ public final class SessionController {
             "export XKB_CONFIG_ROOT=\"$PREFIX/share/X11/xkb\"\n"+
             "env -u LD_LIBRARY_PATH -u LD_PRELOAD CLASSPATH="+quote(c.getApplicationInfo().sourceDir)+" /system/bin/app_process /system/bin --nice-name=archohall-x11 com.termux.x11.CmdEntryPoint :0 &\nx11_pid=$!\n"+
             "ready=0\nfor ((attempt=0;attempt<100;attempt++)); do [[ ! -e \"$TASK_DIR/stop-requested\" ]] || exit 0; if [[ -S \"$PREFIX/tmp/.X11-unix/X0\" ]]; then ready=1; break; fi; kill -0 \"$x11_pid\" 2>/dev/null || { echo 'X11 server exited'; exit 1; }; sleep 0.1; done\n((ready==1)) || { echo 'X11 socket did not become ready'; exit 1; }\n"+
-            "pulseaudio --start --exit-idle-time=-1\npactl load-module module-native-protocol-tcp listen=127.0.0.1 port=4718 auth-ip-acl=127.0.0.1 >/dev/null\n"+
+            "pulseaudio --start --exit-idle-time=-1\nrm -f \"$PREFIX/tmp/archohall-pulse.sock\"\npactl load-module module-native-protocol-unix socket=\"$PREFIX/tmp/archohall-pulse.sock\" auth-anonymous=1 >/dev/null\n"+
             "unset LD_PRELOAD\nextra=()\nif proot --help 2>&1 | grep -q -- '--sysvipc'; then extra+=(--sysvipc); fi\n"+
             "base=(--link2symlink \"${extra[@]}\" -r \"$ROOTFS\" -b /dev -b /proc -b /sys -b \"$PREFIX/tmp:/tmp\")\n"+
             "proot -0 \"${base[@]}\" -w /root /usr/bin/env -i HOME=/root PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/bin TERM=xterm-256color LANG=zh_CN.UTF-8 /usr/local/bin/archohall-init\n"+
             "[[ ! -e \"$TASK_DIR/stop-requested\" ]] || exit 0\n"+
-            "proot -i 1000:1000 \"${base[@]}\" -w /home/arch /usr/bin/env -i HOME=/home/arch USER=arch LOGNAME=arch PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/bin TERM=xterm-256color LANG=zh_CN.UTF-8 DISPLAY=:0 PULSE_SERVER=tcp:127.0.0.1:4718 ARCHOHALL_RENDERER=software ARCHOHALL_WIDTH="+width+" ARCHOHALL_HEIGHT="+height+" /usr/local/bin/archohall-mobile &\nguest_pid=$!\nwait \"$guest_pid\"\n";
+            "proot -i 1000:1000 \"${base[@]}\" -w /home/arch /usr/bin/env -i HOME=/home/arch USER=arch LOGNAME=arch PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/bin TERM=xterm-256color LANG=zh_CN.UTF-8 DISPLAY=:0 PULSE_SERVER=unix:/tmp/archohall-pulse.sock ARCHOHALL_RENDERER=software ARCHOHALL_WIDTH="+width+" ARCHOHALL_HEIGHT="+height+" /usr/local/bin/archohall-mobile &\nguest_pid=$!\nwait \"$guest_pid\"\n";
         File launch=new File(dir,"launch.sh");Files.write(launch.toPath(),script.getBytes(StandardCharsets.UTF_8));launch.setExecutable(true,true);
         startingUntil=android.os.SystemClock.uptimeMillis()+7000;
         execute(c,launch.getAbsolutePath(),"ArchOHall Plasma Mobile");

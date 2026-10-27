@@ -130,7 +130,8 @@ def main():
             if choice is None:
                 raise RuntimeError(f'Unresolved dependency of {name}: {group}')
             include(choice)
-    for name in sorted({p['Package'] for p in records} | {'proot', 'pulseaudio', 'procps', 'tar', 'xz-utils', 'x11-repo', 'xkeyboard-config', 'xorg-xkbcomp'}):
+    # Current util-linux includes lsns but omits libmount from its dependency field.
+    for name in sorted({p['Package'] for p in records} | {'proot', 'pulseaudio', 'procps', 'tar', 'xz-utils', 'x11-repo', 'xkeyboard-config', 'xorg-xkbcomp', 'libmount'}):
         include(name)
     def fetch_package(name):
         p = packages[name]
@@ -142,6 +143,19 @@ def main():
     for line in bootstrap.read('SYMLINKS.txt').decode().splitlines():
         target, name = line.split('←')
         links[name.removeprefix('./')] = target
+    # Remove files owned by the old bootstrap packages BEFORE overlaying any new
+    # package, so package splits cannot leave obsolete ELF binaries behind.
+    for old in records:
+        name=old['Package']
+        list_name=f'var/lib/dpkg/info/{name}.list'
+        if list_name in bootstrap.namelist():
+            for path in bootstrap.read(list_name).decode().splitlines():
+                relative=path.removeprefix('/').removeprefix('data/data/com.termux/files/usr/').removeprefix('./')
+                files.pop(relative,None)
+                links.pop(relative,None)
+        for path in list(files):
+            if path.startswith(f'var/lib/dpkg/info/{name}.'):
+                del files[path]
     status = []
     for name in sorted(wanted):
         members = dict(ar_members(downloads[name].read_bytes()))
@@ -164,6 +178,8 @@ def main():
                         continue
                     raise RuntimeError(f'Unexpected package path: {path}')
                 path = path[len(prefix):]
+                if path.startswith('libexec/installed-tests/'):
+                    continue
                 if '..' in PurePosixPath(path).parts:
                     raise RuntimeError('Unsafe upstream path')
                 installed.append('/data/data/com.archoh/files/usr/'+path)
@@ -195,6 +211,14 @@ def main():
             status.append(fields+'\nStatus: install ok unpacked\n')
         files[f'var/lib/dpkg/info/{name}.list'] = (('\n'.join(installed)+'\n').encode(), 0o644)
     files['var/lib/dpkg/status'] = (('\n'.join(status)+'\n').encode(), 0o644)
+    if 'bin/sh' not in files and 'bin/sh' not in links:
+        links['bin/sh']='bash'
+    for name in list(files):
+        if name.startswith('libexec/installed-tests/'):
+            del files[name]
+    for name in list(links):
+        if name.startswith('libexec/installed-tests/'):
+            del links[name]
     # Public relocation hook keeps subsequent apt operations scoped to this APK.
     hook = '''#!/data/data/com.archoh/files/usr/bin/sh
 set -eu
@@ -208,6 +232,17 @@ exec /system/bin/app_process /system/bin --nice-name=archohall-relocate com.term
     files['SYMLINKS.txt'] = (''.join(relocate(t.encode()).decode()+'←'+n+'\n' for n,t in sorted(links.items())).encode(), 0o644)
     for name, (data, mode) in list(files.items()):
         files[name] = (relocate(data), mode)
+    for name,(body,mode) in list(files.items()):
+        if not name.endswith('.md5sums'):
+            continue
+        refreshed=[]
+        for line in body.decode().splitlines():
+            if len(line)<34:
+                continue
+            path=line[34:].removeprefix('data/data/com.archoh/files/usr/')
+            if path in files:
+                refreshed.append(hashlib.md5(files[path][0]).hexdigest()+line[32:])
+        files[name]=(('\n'.join(refreshed)+'\n').encode(),mode)
     assets = PROJECT/'app/src/main/assets'
     assets.mkdir(parents=True, exist_ok=True)
     output = assets/'bootstrap-relocated.zip'
