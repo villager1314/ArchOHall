@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+compat_prefix=/opt/archohall-kwin-compat
+export LD_LIBRARY_PATH="$compat_prefix/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export QT_PLUGIN_PATH="$compat_prefix/lib/qt6/plugins"
+export QML_IMPORT_PATH="$compat_prefix/lib/qt6/qml"
+export QML2_IMPORT_PATH="$compat_prefix/lib/qt6/qml"
+export XDG_DATA_DIRS="$compat_prefix/share:/usr/local/share:/usr/share"
+export KWIN_COMPOSE=Q
+export QT_QUICK_BACKEND=software
+exec "$compat_prefix/bin/kwin_wayland" "$@"

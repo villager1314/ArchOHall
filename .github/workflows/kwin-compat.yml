@@ -1,0 +1,28 @@
+name: Build KWin software compatibility experiment
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['diagnostics/compat/**', '.github/workflows/kwin-compat.yml']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Build isolated KWin with X11 software rendering
+        run: sudo bash diagnostics/compat/build.sh
+      - name: Upload compatibility package and test logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: archohall-kwin-compat-arm64
+          path: |
+            dist/kwin-compat/*
+            .kwin-compat-build/root/compat-results/*
+          if-no-files-found: warn
+          retention-days: 14
