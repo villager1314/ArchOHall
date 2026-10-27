@@ -219,6 +219,11 @@ def main():
     for name in list(links):
         if name.startswith('libexec/installed-tests/'):
             del links[name]
+    # Offline payload defaults; device migration applies the same choice after dpkg.
+    files['etc/apt/sources.list'] = (b'deb https://mirrors.tuna.tsinghua.edu.cn/termux/apt/termux-main stable main\n', 0o644)
+    files['etc/apt/sources.list.d/x11.list'] = (b'deb https://mirrors.tuna.tsinghua.edu.cn/termux/apt/termux-x11 x11 main\n', 0o644)
+    links['etc/termux/chosen_mirrors'] = 'mirrors/chinese_mainland/mirrors.tuna.tsinghua.edu.cn'
+    files.pop('etc/termux/chosen_mirrors', None)
     # Public relocation hook keeps subsequent apt operations scoped to this APK.
     hook = '''#!/data/data/com.archoh/files/usr/bin/sh
 set -eu

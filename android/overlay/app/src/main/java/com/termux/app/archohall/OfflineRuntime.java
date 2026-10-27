@@ -37,7 +37,7 @@ public final class OfflineRuntime {
     }
     public static void ensure(Context c,Monitor monitor) throws Exception {
         if(android.os.Process.myUid()/100000!=0)throw new IOException("此版本请安装在安卓主用户中");
-        if(ready(c)){monitor.log("离线运行环境已就绪");return;}
+        if(ready(c)){TermuxMirror.apply(prefix(c));monitor.log("离线运行环境已就绪");return;}
         File files=c.getFilesDir(),prefix=prefix(c), stage=new File(files,"runtime-staging"), archive=new File(files,"runtime-payload.zip");
         JSONObject manifest;
         try(InputStream in=c.getAssets().open("runtime-manifest.json")){manifest=new JSONObject(new String(readSmall(in,1024*1024),StandardCharsets.UTF_8));}
@@ -90,6 +90,7 @@ public final class OfflineRuntime {
         int result=process.waitFor();monitor.process(null);
         if(result!=0)throw new IOException("离线环境配置失败，退出码 "+result);
         for(String tool:new String[]{"bin/bash","bin/proot","bin/pulseaudio","bin/tar","bin/xz"})if(!new File(prefix,tool).canExecute())throw new IOException("缺少内置工具："+tool);
+        TermuxMirror.apply(prefix);
         Files.write(new File(prefix,".archohall-runtime-001").toPath(),manifest.getString("bootstrapSha256").getBytes(StandardCharsets.US_ASCII));
         monitor.log("离线运行环境准备完成；无需外部 Termux 或 X11");
     }

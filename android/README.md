@@ -1,4 +1,4 @@
-# ArchOHall Android 0.02
+# ArchOHall Android 0.03
 
 实验性 ARM64 安卓应用，包名 `com.archoh`，可以与现有 Termux、Termux:X11 和 `com.phoshx` 并装。
 
@@ -8,9 +8,11 @@
 
 0.02 修复继承 Termux 的 extractNativeLibs=true 导致 JNI 库被压缩、后台 app_process 无法直接 dlopen APK 内 libXlorie.so 的问题。原生库以未压缩、16 KiB 对齐的方式打包，CI 检查最终 APK 的实际 ZIP 条目。版本名按 0.01、0.02、0.03 递增。
 
+0.03 默认采用清华 TUNA 的 Termux 主仓库和 X11 仓库，并固定 pkg 的镜像选择。覆盖安装后会对已有运行环境离线迁移一次，旧配置保存在 `$PREFIX/etc/termux/archohall-before-003/`；后续手动换源不会被反复覆盖。不自动执行 apt update 或升级软件，也不修改 Arch 容器源。构建时仍从经过签名校验的上游仓库取包，安装与配置保持离线。
+
 ## 使用
 
-1. 从本仓库 Actions 的 **Build ArchOHall Android 0.02** 下载 APK 构建产物并安装。
+1. 从本仓库 Actions 的 **Build ArchOHall Android 0.03** 下载 APK 构建产物并安装。
 2. 首次启动会从 APK 展开内置运行包并配置软件，整个过程不执行 `pkg install` 或联网下载。
 3. 点击“选择本地导入包”，通过安卓 SAF 选择 ArchOHall 的 `tar.xz`，或此前 rootfs Actions 生成的 ZIP。
 4. 观察分阶段进度与日志；导入完成后点击“启动 Plasma Mobile”。

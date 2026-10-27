@@ -21,5 +21,9 @@ public class ArchApplication extends TermuxApplication {
             java.io.BufferedReader reader=new java.io.BufferedReader(new java.io.InputStreamReader(input,StandardCharsets.UTF_8));
             if(offset>0)reader.readLine();String line;while((line=reader.readLine())!=null)OperationState.INSTANCE.log(line);
         }catch(IOException ignored){}
+        if(OperationState.INSTANCE.runtimeReady){
+            try{if(TermuxMirror.apply(OfflineRuntime.prefix(this)))OperationState.INSTANCE.log("Termux 主仓库和 X11 仓库已切换至清华源，旧配置已备份");}
+            catch(IOException e){OperationState.INSTANCE.log("清华源配置未完成："+e.getMessage());}
+        }
     }
 }
