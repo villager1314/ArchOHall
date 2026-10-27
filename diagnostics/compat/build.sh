@@ -19,10 +19,14 @@ gpg --homedir "$work/gnupg" --batch --import "$work/builder.asc"
 gpg --homedir "$work/gnupg" --batch --verify "$work/base.tar.gz.sig" "$work/base.tar.gz"
 tar --numeric-owner -xpf "$work/base.tar.gz" -C "$root" --exclude='./dev/*' --exclude='dev/*'
 cleanup() {
+    local result=$?
+    trap - EXIT
+    set +e
     chroot "$root" /usr/bin/gpgconf --homedir /etc/pacman.d/gnupg --kill all || true
     for target in "$root/proc" "$root/dev" "$root"; do
-        if mountpoint -q "$target"; then umount -R "$target"; fi
+        if mountpoint -q "$target"; then umount -R "$target" || umount -lR "$target"; fi
     done
+    exit "$result"
 }
 trap cleanup EXIT
 mount --bind "$root" "$root"
@@ -35,12 +39,15 @@ printf 'Server = https://ca.us.mirror.archlinuxarm.org/$arch/$repo\n' > "$root/e
 mkdir -p "$root/opt/compat-build"
 cp -a "$project/diagnostics/compat/." "$root/opt/compat-build/"
 chroot "$root" /bin/bash /opt/compat-build/build-in-arch.sh
-cp -a "$root/compat-results/." "$out/"
 cp "$root/opt/archohall-kwin-compat/build-packages.txt" "$out/"
 cp "$root/tmp/kwin-source.tar.gz" "$out/kwin-upstream-source.tar.gz"
 cp -a "$project/diagnostics/compat" "$out/build-scripts"
 tar -C "$root" -cJf "$out/archohall-kwin-compat-6.7.5-aarch64.tar.xz" \
     opt/archohall-kwin-compat usr/local/bin/archohall-kwin-compat
+test_result=0
+chroot "$root" /bin/bash /opt/compat-build/test-in-arch.sh || test_result=$?
+cp -a "$root/compat-results/." "$out/"
 cp "$work/base.tar.gz.sig" "$out/base-signature.sig"
 printf '%s\n' 'Experimental KWin 6.7.5 with X11 QPainter and null-udev fix. CI Xvfb test only; Android not yet tested.' > "$out/README.txt"
 (cd "$out" && sha256sum *.tar.xz > SHA256SUMS)
+exit "$test_result"
