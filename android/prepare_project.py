@@ -160,6 +160,8 @@ dependencies {
     path.write_text(text)
     application_path = PROJECT/'app/src/main/java/com/termux/app/TermuxApplication.java'
     application_path.write_text(application_path.read_text().replace('extends Application', 'extends com.termux.x11.LorieApp'))
+    help_path=PROJECT/'app/src/main/java/com/termux/app/activities/HelpActivity.java'
+    help_path.write_text(help_path.read_text().replace('settings.setAppCacheEnabled(false);','// Application Cache API was removed from the Android SDK.'))
     constants = PROJECT/'termux-shared/src/main/java/com/termux/shared/termux/TermuxConstants.java'
     constants.write_text(re.sub(r'(public static final String [A-Z_]+_NAME = )TERMUX_PACKAGE_NAME \+ "(\.app[^"]*)"',r'\1"com.termux\2"',constants.read_text()))
     # Fallback used by the built-in terminal after the foreground importer prepares assets.
