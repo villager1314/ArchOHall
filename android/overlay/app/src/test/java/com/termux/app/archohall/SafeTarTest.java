@@ -22,6 +22,23 @@ public class SafeTarTest {
     private static String read(Path p)throws IOException{return new String(Files.readAllBytes(p),java.nio.charset.StandardCharsets.UTF_8);}
     private static void write(Path p,String s)throws IOException{Files.write(p,s.getBytes(java.nio.charset.StandardCharsets.UTF_8));}
     @Test public void normalFileAndExecutable()throws Exception {extract(archive(out->file(out,"usr/bin/tool","ok")));assertEquals("ok",read(temp.resolve("stage/usr/bin/tool")));assertTrue(Files.isExecutable(temp.resolve("stage/usr/bin/tool")));}
+    @Test public void systemdEscapedUnitNameIsLiteral()throws Exception {
+        String name="usr/lib/systemd/system/system-systemd\\x2dveritysetup.slice";
+        extract(archive(out->file(out,"./"+name,"unit")));
+        assertEquals("unit",read(temp.resolve("stage").resolve(name)));
+        assertFalse(Files.exists(temp.resolve("stage/usr/lib/systemd/system/system-systemd-veritysetup.slice")));
+    }
+    @Test public void backslashInHardlinkTargetIsLiteral()throws Exception {
+        String name="usr/lib/systemd/system/unit\\x2dname";
+        extract(archive(out->{link(out,"alias",name,true);file(out,name,"unit");}));
+        assertEquals("unit",read(temp.resolve("stage/alias")));
+    }
+    @Test public void slashTraversalAfterBackslashIsRejected()throws Exception {
+        File a=archive(out->file(out,"literal\\name/../../escaped","bad"));
+        IOException error=assertThrows(IOException.class,()->extract(a));
+        assertTrue(error.getMessage().contains("越界"));
+        assertFalse(Files.exists(temp.resolve("escaped")));
+    }
     @Test public void traversalCannotEscape()throws Exception {File a=archive(out->file(out,"../escaped","bad"));assertThrows(IOException.class,()->extract(a));assertFalse(Files.exists(temp.resolve("escaped")));}
     @Test public void symlinkParentCannotEscape()throws Exception {Path outside=Files.createDirectory(temp.resolve("outside"));File a=archive(out->{link(out,"jump",outside.toString(),false);file(out,"jump/escaped","bad");});assertThrows(IOException.class,()->extract(a));assertFalse(Files.exists(outside.resolve("escaped")));}
     @Test public void leafSymlinkCannotBeOverwritten()throws Exception {Path victim=temp.resolve("victim");write(victim,"keep");File a=archive(out->{link(out,"file",victim.toString(),false);file(out,"file","bad");});assertThrows(IOException.class,()->extract(a));assertEquals("keep",read(victim));}

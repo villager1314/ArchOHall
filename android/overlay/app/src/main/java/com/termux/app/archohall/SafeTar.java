@@ -15,7 +15,9 @@ public final class SafeTar {
     private record Link(Path path, Path target, int mode) {}
     private record Mode(Path path, int mode) {}
     public static Path resolve(Path root, String name) throws IOException {
-        if (name.indexOf('\0') >= 0 || name.startsWith("/") || name.contains("\\")) throw new IOException("非法归档路径：" + name);
+        if (name.indexOf('\0') >= 0 || name.startsWith("/")) throw new IOException("非法归档路径：" + name);
+        // Linux uses only / as a separator. Backslashes are literal filename bytes,
+        // including systemd unit names such as system-systemd\\x2dveritysetup.slice.
         Path path = root.resolve(name).normalize();
         if (!path.startsWith(root)) throw new IOException("归档路径越界：" + name);
         return path;
