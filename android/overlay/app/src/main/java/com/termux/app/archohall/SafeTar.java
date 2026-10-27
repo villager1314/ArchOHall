@@ -11,6 +11,7 @@ import org.tukaani.xz.*;
 public final class SafeTar {
     public interface Progress { void update(String path, long files, long bytes, long total) throws IOException; }
     public static final long LIMIT = 16L * 1024 * 1024 * 1024;
+    private static final int XZ_MEMORY_KIB = 256 * 1024; // XZ Java accepts KiB, not MiB.
     private record Link(Path path, Path target, int mode) {}
     private record Mode(Path path, int mode) {}
     public static Path resolve(Path root, String name) throws IOException {
@@ -37,7 +38,7 @@ public final class SafeTar {
         Files.setPosixFilePermissions(p, PosixFilePermissions.fromString(permissions.toString()));
     }
     public static long expandedSize(File archive) throws IOException {
-        try (SeekableXZInputStream in = new SeekableXZInputStream(new SeekableFileInputStream(archive), 256)) {
+        try (SeekableXZInputStream in = new SeekableXZInputStream(new SeekableFileInputStream(archive), XZ_MEMORY_KIB)) {
             long length = in.length();
             if (length <= 0 || length > LIMIT) throw new IOException("解压大小不在允许范围内（最多 16 GiB）");
             return length;
@@ -51,7 +52,7 @@ public final class SafeTar {
         List<Mode> dirs = new ArrayList<>();
         byte[] buffer = new byte[131072];
         try (InputStream file = new BufferedInputStream(new FileInputStream(archive));
-             XZInputStream xz = new XZInputStream(file, 256);
+             XZInputStream xz = new XZInputStream(file, XZ_MEMORY_KIB);
              TarArchiveInputStream tar = new TarArchiveInputStream(xz)) {
             TarArchiveEntry entry;
             while ((entry = tar.getNextTarEntry()) != null) {
