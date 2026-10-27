@@ -26,9 +26,10 @@ cmake -S /build/kwin -B /build/output -G Ninja \
     -DCMAKE_BUILD_TYPE=Release '-DCMAKE_CXX_FLAGS_RELEASE=-O1 -DNDEBUG' \
     -DBUILD_TESTING=OFF -DKWIN_BUILD_KCMS=OFF -DKWIN_BUILD_SCREENLOCKER=OFF \
     -DKWIN_BUILD_NOTIFICATIONS=OFF -DKWIN_BUILD_RUNNERS=OFF \
+    -DKWIN_BUILD_GLOBALSHORTCUTS=OFF \
     -DKWIN_BUILD_DECORATIONS=OFF -DKWIN_BUILD_TABBOX=OFF \
     -DKWIN_BUILD_ACTIVITIES=OFF
-cmake --build /build/output --parallel 2
+cmake --build /build/output --parallel 4
 cmake --install /build/output --strip
 install -Dm755 /opt/compat-build/archohall-kwin-compat /usr/local/bin/archohall-kwin-compat
 pacman -Q > /opt/archohall-kwin-compat/build-packages.txt

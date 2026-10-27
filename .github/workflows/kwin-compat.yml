@@ -15,7 +15,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Build isolated KWin with X11 software rendering
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p dist/kwin-compat
           sudo bash diagnostics/compat/build.sh 2>&1 | tee dist/kwin-compat/build.log
       - name: Upload compatibility package and test logs
