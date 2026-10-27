@@ -25,6 +25,7 @@ class BatteryTests(unittest.TestCase):
         self.assertEqual(power.battery_properties({'battery':43,'batteryStatus':3})['State'],2)
         self.assertEqual(power.battery_properties({'battery':43,'plugged':True,'batteryStatus':2})['State'],1)
         self.assertEqual(power.battery_properties({'battery':100,'plugged':True,'batteryStatus':5})['State'],4)
+        self.assertEqual(power.battery_properties({'battery':80,'plugged':True,'batteryStatus':4})['State'],5)
 
     def test_missing_state_is_not_an_empty_real_battery(self):
         self.assertFalse(power.battery_properties({})['IsPresent'])
@@ -115,6 +116,23 @@ class BusTests(unittest.IsolatedAsyncioTestCase):
 
 
 class PackagingTests(unittest.TestCase):
+    def test_installer_rejects_upgrades_of_existing_frameworks(self):
+        with tempfile.TemporaryDirectory() as d:
+            directory=Path(d)
+            (directory/'id').write_text('#!/bin/sh\necho 0\n')
+            (directory/'pacman').write_text('''#!/bin/sh
+case "$1" in
+    -Sp) echo 'kcoreaddons 6.99.0-1';;
+    -Q) echo 'kcoreaddons 6.18.0-1';;
+    *) echo INSTALL_WAS_ATTEMPTED >&2; exit 99;;
+esac
+''')
+            for f in directory.iterdir():f.chmod(0o755)
+            result=subprocess.run(['bash',str(BIN/'archohall-install-extras')],env=dict(os.environ,PATH=d+':'+os.environ['PATH']),capture_output=True,text=True)
+            self.assertEqual(result.returncode,1)
+            self.assertIn('kcoreaddons',result.stderr)
+            self.assertNotIn('INSTALL_WAS_ATTEMPTED',result.stderr)
+
     def test_support_archive_is_guest_scoped_and_has_no_probe(self):
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/'support.zip'

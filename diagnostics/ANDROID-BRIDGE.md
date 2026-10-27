@@ -45,8 +45,9 @@ Required packages: `plasma-keyboard`, `plasma-pa`, `python-dbus-fast`, `ffmpeg`,
 `libnotify`. Plasma Keyboard may already be installed as a Plasma Mobile dependency;
 an enabled virtual-keyboard tile alone does not prove its KWin input method is selected.
 
-The installer performs a dry transaction and refuses to change Qt6, KF6, KWin,
-libplasma, plasma-workspace or plasma-mobile. It does not run `pacman -Sy` or an
+The installer performs a dry transaction and refuses to change any installed package
+version, including Qt6, KDE Frameworks, KWin, libplasma, plasma-workspace and plasma-mobile.
+It does not run `pacman -Sy` or an
 unattended full upgrade. A repository/ABI conflict must be resolved against the
 retained compatibility build; a failure reports actual package errors instead of
 marking uninstalled components as available.
