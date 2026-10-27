@@ -29,12 +29,12 @@ jobs:
       - name: Prepare Android SDK and package tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends curl gnupg zstd unzip pulseaudio pulseaudio-utils proot
+          sudo apt-get install -y --no-install-recommends curl gnupg zstd unzip pulseaudio pulseaudio-utils libtalloc-dev
           bash android/install_sdk.sh
       - name: Test desktop bridge
         run: |
           python3 -m pip install dbus-fast==5.0.22
-          python3 -m unittest discover -s tests -v
+          bash android/test_proot.sh
       - name: Compose pinned sources
         run: python3 android/prepare_project.py
       - name: Fetch verified desktop compatibility component

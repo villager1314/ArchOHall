@@ -86,6 +86,8 @@ mode repair, package-upgrade refusal, bounded request and clipboard round trips,
 real D-Bus UPower properties (including BatteryLevel), real PA cookie acceptance and
 rejection, and PRoot setuid identity simulation. Java tests reject unknown/invalid
 commands, numeric overflow and invalid/oversize UTF-8 clipboard payloads.
+The identity check compiles the checksum-locked Termux PRoot 5.1.107.101 source
+used by the APK package, rather than Ubuntu's older PRoot with different semantics.
 
 CI must run real socket/identity tests without the local executor skip flag, plus
 Android unit tests/build, retained signature verification and X11 JNI checks.
