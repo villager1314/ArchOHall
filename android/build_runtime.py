@@ -270,6 +270,20 @@ exec /system/bin/app_process /system/bin --nice-name=archohall-relocate com.term
     x11_jni.mkdir(parents=True, exist_ok=True)
     (x11_jni/'libXlorie.so').write_bytes(native)
     manifest = {'applicationId': 'com.archoh', 'version':LOCK['version_name'], 'bootstrapBytes':output.stat().st_size, 'expandedBytes':sum(len(b) for b,m in files.values()), 'bootstrapSha256':hashlib.sha256(output.read_bytes()).hexdigest(), 'packages':{name:packages[name]['Version'] for name in sorted(wanted)}, 'sources':LOCK, 'termuxApkSha256':expected}
+    candidates = list((WORK/'compat-artifact').rglob('archohall-kwin-compat-6.7.5-aarch64.tar.xz'))
+    if len(candidates) != 1:
+        raise RuntimeError('Expected exactly one locked desktop compatibility archive')
+    compat = candidates[0].read_bytes()
+    if hashlib.sha256(compat).hexdigest() != LOCK['compat_sha256']:
+        raise RuntimeError('Desktop compatibility archive checksum mismatch')
+    (assets/'desktop-compat.tar.xz').write_bytes(compat)
+    (assets/'compat-install').write_bytes((REPO/'android/desktop-compat-install.sh').read_bytes())
+    mobile = (REPO/'rootfs/usr/local/bin/archohall-mobile').read_text().replace('exec dbus-run-session -- kwin_wayland', 'exec dbus-run-session -- /usr/local/bin/archohall-kwin-compat').replace(' --xwayland', '')
+    session = (REPO/'rootfs/usr/local/bin/archohall-session').read_text().replace('export QT_QPA_PLATFORM=wayland', 'export QT_QPA_PLATFORM=wayland\nexport QT_QUICK_BACKEND=software\nexport QT_FORCE_STDERR_LOGGING=1')
+    (assets/'compat-mobile').write_text(mobile)
+    session = session.replace('exec plasmashell ', 'trap \'echo \"Plasma shell exit=$?\" >&2\' EXIT\nplasmashell ')
+    (assets/'compat-session').write_text(session)
+    manifest['desktopCompatibility'] = {'kwin': '6.7.5', 'renderer': 'QPainter', 'sha256': LOCK['compat_sha256'], 'ciRun': LOCK['compat_run_id']}
     (assets/'runtime-manifest.json').write_text(json.dumps(manifest, indent=2))
     print('Offline runtime:', len(wanted), 'packages,', output.stat().st_size, 'bytes')
 

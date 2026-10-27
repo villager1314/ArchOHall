@@ -32,12 +32,12 @@ public final class SessionController {
             "export PREFIX="+quote(prefix)+"\nexport HOME="+quote(new File(c.getFilesDir(),"home").getAbsolutePath())+"\n"+
             "export PATH=\"$PREFIX/bin:/system/bin:/system/xbin\" TMPDIR=\"$PREFIX/tmp\" PROOT_TMP_DIR=\"$PREFIX/tmp\"\n"+
             "TASK_DIR="+quote(dir.getAbsolutePath())+"\nROOTFS="+quote(root)+"\nmkdir -p \"$PREFIX/tmp\"\n"+
-            "echo $$ > \"$TASK_DIR/session.pid\"\nexec > >(tee -a \"$TASK_DIR/session.log\") 2>&1\n"+
+            "echo $$ > \"$TASK_DIR/session.pid\"\n[[ ! -f \"$TASK_DIR/session.log\" ]] || mv -f \"$TASK_DIR/session.log\" \"$TASK_DIR/session.previous.log\"\nexec > >(tee \"$TASK_DIR/session.log\") 2>&1\necho \"ArchOHall session $(date -Iseconds)\"\n"+
             "x11_pid=\"\"\nguest_pid=\"\"\ncleanup() { trap - EXIT INT TERM; [[ -z $guest_pid ]] || kill -TERM \"$guest_pid\" 2>/dev/null || true; [[ -z $x11_pid ]] || kill -TERM \"$x11_pid\" 2>/dev/null || true; pulseaudio --kill 2>/dev/null || true; rm -f \"$TASK_DIR/session.pid\"; }\ntrap cleanup EXIT INT TERM\n"+
             "[[ ! -e \"$TASK_DIR/stop-requested\" ]] || exit 0\n"+
             "export XKB_CONFIG_ROOT=\"$PREFIX/share/X11/xkb\"\n"+
             "env -u LD_LIBRARY_PATH -u LD_PRELOAD CLASSPATH="+quote(c.getApplicationInfo().sourceDir)+" /system/bin/app_process /system/bin --nice-name=archohall-x11 com.termux.x11.CmdEntryPoint :0 &\nx11_pid=$!\n"+
-            "ready=0\nfor ((attempt=0;attempt<100;attempt++)); do [[ ! -e \"$TASK_DIR/stop-requested\" ]] || exit 0; if [[ -S \"$PREFIX/tmp/.X11-unix/X0\" ]]; then ready=1; break; fi; kill -0 \"$x11_pid\" 2>/dev/null || { echo 'X11 server exited'; exit 1; }; sleep 0.1; done\n((ready==1)) || { echo 'X11 socket did not become ready'; exit 1; }\n"+
+            "ready=0\nfor ((attempt=0;attempt<100;attempt++)); do\n [[ ! -e \"$TASK_DIR/stop-requested\" ]] || exit 0\n kill -0 \"$x11_pid\" 2>/dev/null || { echo 'X11 server exited'; exit 1; }\n if [[ -S \"$PREFIX/tmp/.X11-unix/X0\" ]] && env -u LD_PRELOAD proot --link2symlink -r \"$ROOTFS\" -b /dev -b /proc -b \"$PREFIX/tmp:/tmp\" -w / /usr/bin/env -i PATH=/usr/bin:/bin DISPLAY=:0 /usr/bin/xdpyinfo >/dev/null 2>&1; then ready=1; break; fi\n sleep 0.1\ndone\n((ready==1)) || { echo 'X11 did not answer a client connection'; exit 1; }\necho 'X11 client connection verified'\n"+
             "pulseaudio --start --exit-idle-time=-1\nrm -f \"$PREFIX/tmp/archohall-pulse.sock\"\npactl load-module module-native-protocol-unix socket=\"$PREFIX/tmp/archohall-pulse.sock\" auth-anonymous=1 >/dev/null\n"+
             "unset LD_PRELOAD\nextra=()\nif proot --help 2>&1 | grep -q -- '--sysvipc'; then extra+=(--sysvipc); fi\n"+
             "base=(--link2symlink \"${extra[@]}\" -r \"$ROOTFS\" -b /dev -b /proc -b /sys -b \"$PREFIX/tmp:/tmp\")\n"+

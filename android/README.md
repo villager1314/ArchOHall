@@ -1,3 +1,16 @@
+## Android 0.04
+
+保持 `com.archoh` 和固定签名，可覆盖安装并保留现有运行环境及容器。
+
+- 首页“共享存储访问”与 `termux-setup-storage` 使用同一授权流程；Android 11+ 打开系统所有文件访问页面。SAF 导入不依赖此权限。
+- 覆盖安装会修复现有 `am` 调用身份与内置 X11 命令入口；APT 更新后也会重新修复。
+- “导入终端文件”通过 SAF 复制单个文件到私有 `~/downloads`，上限 64 MiB。
+- “安装软件兼容组件”完全离线安装 KWin 6.7.5 QPainter，并保留原桌面启动脚本。适用于之前 6.8.1 的 udev/RenderDevice 崩溃；要求 Qt Base 6.12.0-3、Declarative 6.12.0-2、Wayland 6.12.0-1。
+- 兼容组件暂未启用装饰、锁屏、全局快捷键服务等功能，Android 实机行为仍需验证。系统 KWin/Plasma 的 pacman 记录不改动。
+- 桌面启动实际验证 X11 客户端连接，每次启动保留上一份日志为 `session.previous.log`。
+
+兼容包来自 Actions 40464534205，锁定 SHA256 `8997a9cbf09361ce8614fda5925f21eb8bcd652ccd303f54433c40a1f58d28e4`。构建依赖该产物仍可下载；过期时需重新构建并更新锁定信息，校验失败会停止 APK 构建。
+
 # ArchOHall Android 0.03
 
 实验性 ARM64 安卓应用，包名 `com.archoh`，可以与现有 Termux、Termux:X11 和 `com.phoshx` 并装。

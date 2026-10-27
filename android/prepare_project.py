@@ -85,8 +85,8 @@ android {
   applicationId 'com.archoh'
   minSdk 26
   targetSdk 28
-  versionCode 5
-  versionName '0.03'
+  versionCode 6
+  versionName '0.04'
   manifestPlaceholders = [TERMUX_PACKAGE_NAME:'com.archoh', TERMUX_APP_NAME:'ArchOHall', TERMUX_API_APP_NAME:'Termux:API', TERMUX_BOOT_APP_NAME:'Termux:Boot', TERMUX_FLOAT_APP_NAME:'Termux:Float', TERMUX_STYLING_APP_NAME:'Termux:Styling', TERMUX_TASKER_APP_NAME:'Termux:Tasker', TERMUX_WIDGET_APP_NAME:'Termux:Widget']
   ndk { abiFilters 'arm64-v8a' }
  }
@@ -179,6 +179,17 @@ dependencies {
 }
 '''
     path.write_text(text)
+    # Storage requests from the terminal and the Material home share one foreground flow.
+    terminal_activity = PROJECT/'app/src/main/java/com/termux/app/TermuxActivity.java'
+    terminal_text = terminal_activity.read_text()
+    start = terminal_text.index('    public boolean ensureStoragePermissionGranted() {')
+    end = terminal_text.index('    @Override', start)
+    terminal_text = terminal_text[:start] + '    public boolean ensureStoragePermissionGranted() {\n        if (HostPermissions.storageGranted(this)) return true;\n        HostPermissions.requestStorage(this);\n        return false;\n    }\n\n' + terminal_text[end:]
+    terminal_text = terminal_text.replace('        super.onResume();', '        super.onResume();\n        HostPermissions.finishStorageRequest(this);', 1)
+    callback = '    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {'
+    assert callback in terminal_text
+    terminal_text = terminal_text.replace(callback, callback + '\n        if (requestCode == HostPermissions.STORAGE) { HostPermissions.finishStorageRequest(this); return; }')
+    terminal_activity.write_text(terminal_text)
     # New activities, services, theme, and app manifest replace upstream app wiring.
     shutil.copytree(REPO / 'android/overlay', PROJECT, dirs_exist_ok=True)
     android_ns = 'http://schemas.android.com/apk/res/android'
@@ -214,9 +225,8 @@ dependencies {
             ET.SubElement(intent_filter, 'category', {attr('name'):'android.intent.category.LAUNCHER'})
             ET.SubElement(application, 'service', {attr('name'):'com.termux.app.archohall.ImportService', attr('exported'):'false'})
             ET.SubElement(root, 'uses-permission', {attr('name'):'android.permission.POST_NOTIFICATIONS'})
-            for permission in list(root.findall('uses-permission')):
-                if permission.get(attr('name')) in ['android.permission.MANAGE_EXTERNAL_STORAGE', 'android.permission.WRITE_EXTERNAL_STORAGE']:
-                    root.remove(permission)
+            application.set(attr('requestLegacyExternalStorage'), 'true')
+            ET.SubElement(root, 'uses-permission', {attr('name'):'android.permission.READ_EXTERNAL_STORAGE'})
         else:
             for component in application:
                 if component.tag in ('activity', 'receiver'):

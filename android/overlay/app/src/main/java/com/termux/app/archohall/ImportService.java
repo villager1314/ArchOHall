@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.*;
 
 public final class ImportService extends Service implements OfflineRuntime.Monitor {
-    public static final String PREPARE="prepare", IMPORT="import", CANCEL="cancel";
+    public static final String PREPARE="prepare", IMPORT="import", CANCEL="cancel", COMPAT="compat", FILE="file";
     private static final int NOTICE=4101;
     private final AtomicBoolean cancelled=new AtomicBoolean();
     private volatile Process child;
@@ -41,7 +41,8 @@ public final class ImportService extends Service implements OfflineRuntime.Monit
         startForeground(NOTICE,notification());
         wake=((PowerManager)getSystemService(POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"ArchOHall:import");wake.acquire(60*60*1000L);
         Uri source=intent.getData();
-        new Thread(()->runOperation(source),"archohall-import").start();return START_NOT_STICKY;
+        String action=intent.getAction();
+        new Thread(()->runOperation(source,action),"archohall-import").start();return START_NOT_STICKY;
     }
     private Notification notification(){
         PendingIntent open=PendingIntent.getActivity(this,0,new Intent(this,ArchActivity.class),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
@@ -60,15 +61,17 @@ public final class ImportService extends Service implements OfflineRuntime.Monit
     @Override public boolean cancelled(){return cancelled.get();}
     @Override public void process(Process process){child=process;}
     private static String size(long bytes){return String.format(Locale.ROOT,"%.1f MiB",bytes/1048576.0);}
-    private void runOperation(Uri source){
+    private void runOperation(Uri source,String action){
         File work=new File(getFilesDir(),"import-work");
         try{
             log=new BufferedWriter(new OutputStreamWriter(new FileOutputStream(new File(getFilesDir(),"import.log"),true),StandardCharsets.UTF_8));
-            log("──── ArchOHall 0.01 ────");
+            log("──── ArchOHall 0.04 ────");
             if(SessionController.running(this))throw new IOException("请先停止桌面，再导入容器");
             OfflineRuntime.ensure(this,this);state.runtimeReady=true;
-            if(source!=null){SafeTar.deleteTree(work);work.mkdirs();importRootfs(source,work);}
-            state.phase=source==null?"离线环境已就绪":"导入完成";state.detail=source==null?"请选择本地 ArchOHall 导入包":"可以启动 Plasma Mobile";state.progress=1000;log(state.phase);
+            if(COMPAT.equals(action)) {GuestCompatibility.install(this,this);state.phase="兼容组件已安装";state.detail="可以启动 Plasma Mobile；原脚本已保留为备份";}
+            else if(FILE.equals(action)) {SafeTar.deleteTree(work);work.mkdirs();importTerminalFile(source,work);state.phase="终端文件已导入";}
+            else {if(source!=null){SafeTar.deleteTree(work);work.mkdirs();importRootfs(source,work);}state.phase=source==null?"离线环境已就绪":"导入完成";state.detail=source==null?"请选择本地 ArchOHall 导入包":"可以启动 Plasma Mobile";}
+            state.progress=1000;log(state.phase);
         }catch(Exception error){state.phase=cancelled()?"已取消":"操作失败";state.detail=error.getMessage()==null?error.toString():error.getMessage();state.progress=-1;try{log(state.phase+"："+state.detail);StringWriter trace=new StringWriter();error.printStackTrace(new PrintWriter(trace));log(trace.toString());}catch(IOException ignored){} }
         finally{
             child=null;
@@ -81,6 +84,24 @@ public final class ImportService extends Service implements OfflineRuntime.Monit
     }
     private long documentSize(Uri uri){
         try(Cursor cursor=getContentResolver().query(uri,new String[]{OpenableColumns.SIZE},null,null,null)){if(cursor!=null&&cursor.moveToFirst()&&!cursor.isNull(0))return cursor.getLong(0);}catch(Exception ignored){}return -1;
+    }
+    private void importTerminalFile(Uri uri,File work)throws Exception {
+        if(uri==null)throw new IOException("没有选择文件");
+        String name="imported-file";
+        try(Cursor c=getContentResolver().query(uri,new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)){if(c!=null&&c.moveToFirst()&&!c.isNull(0))name=c.getString(0);}catch(Exception ignored){}
+        name=name.replaceAll("[^A-Za-z0-9._-]","_");if(name.isEmpty()||name.equals(".")||name.equals(".."))name="imported-file";
+        if(name.length()>180)name=name.substring(name.length()-180);
+        long total=documentSize(uri);if(total>64L*1024*1024)throw new IOException("终端文件导入上限为 64 MiB；容器请使用导入包入口");
+        File stage=new File(work,"terminal-file");long count=0;
+        try(InputStream in=getContentResolver().openInputStream(uri);OutputStream out=new FileOutputStream(stage)){
+            if(in==null)throw new IOException("无法读取所选文件");byte[] b=new byte[131072];int n;
+            while((n=in.read(b))!=-1){if((count+=n)>64L*1024*1024)throw new IOException("文件超过 64 MiB");out.write(b,0,n);phase("复制终端文件",count,total,name);}
+        }
+        File directory=new File(getFilesDir(),"home/downloads");directory.mkdirs();
+        if(Files.isSymbolicLink(directory.toPath()))throw new IOException("终端 downloads 目录是符号链接，请先调整该目录");
+        File target=new File(directory,name);
+        if(target.exists())Files.move(target.toPath(),new File(directory,name+".backup-"+System.currentTimeMillis()).toPath());
+        Files.move(stage.toPath(),target.toPath());state.detail="终端路径：~/downloads/"+name;log(state.detail);
     }
     private void copy(InputStream in,File out,String phase,long total) throws Exception {
         long count=0;byte[] buffer=new byte[131072];int n;
