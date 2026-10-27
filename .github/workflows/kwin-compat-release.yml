@@ -1,0 +1,66 @@
+name: Publish tested KWin compatibility experiment
+on:
+  workflow_run:
+    workflows: ['Build KWin software compatibility experiment']
+    types: [completed]
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: archohall-kwin-compat-arm64
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          path: staging
+      - name: Prepare installer and corresponding source
+        env:
+          BUILD_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          mkdir release-files
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, os, tarfile
+          root = Path('staging')
+          package = next(root.rglob('archohall-kwin-compat-6.7.5-aarch64.tar.xz'))
+          outputs = package.parent
+          assert 'PASS:' in (outputs/'result.txt').read_text()
+          versions = dict(line.split(' ', 1) for line in (outputs/'build-packages.txt').read_text().splitlines())
+          tag = 'kwin-compat-' + os.environ['BUILD_RUN_ID']
+          replacements = {
+              '@RELEASE_TAG@': tag,
+              '@PACKAGE_SHA256@': hashlib.sha256(package.read_bytes()).hexdigest(),
+              '@QT_BASE@': versions['qt6-base'],
+              '@QT_DECLARATIVE@': versions['qt6-declarative'],
+              '@QT_WAYLAND@': versions['qt6-wayland'],
+          }
+          template = Path('diagnostics/install-kwin-compat-template.sh').read_text()
+          for a, b in replacements.items(): template = template.replace(a, b)
+          assert '@QT_' not in template and '@PACKAGE_' not in template
+          dest = Path('release-files')
+          (dest/'install-kwin-compat.sh').write_text(template)
+          for name in [package.name, 'kwin-upstream-source.tar.gz', 'build-packages.txt', 'README.txt', 'kwin.log', 'result.txt']:
+              (dest/name).write_bytes((outputs/name).read_bytes())
+          with tarfile.open(dest/'compat-build-scripts.tar.xz', 'w:xz') as t:
+              t.add(outputs/'build-scripts', arcname='build-scripts')
+          (dest/'SHA256SUMS').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n' for p in sorted(dest.iterdir())))
+          (Path('release-tag.txt')).write_text(tag)
+          PY
+          bash -n release-files/install-kwin-compat.sh
+      - name: Publish experimental compatibility files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BUILD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          gh release create "$(cat release-tag.txt)" release-files/* \
+            --target "$BUILD_SHA" --prerelease \
+            --title 'KWin X11 software rendering compatibility experiment' \
+            --notes '独立安装的 KWin 6.7.5 兼容测试包，保留 X11 QPainter 软件渲染并修复 udev 监视器空指针。已通过 ARM64 Xvfb/Wayland 客户端检查；尚未通过 Android 实机验证。不是新版 APK，也不替换系统 KWin 包。附上游完整源码、补丁与构建脚本。'
