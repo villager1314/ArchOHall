@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare every X11 native Java declaration against the official JNI donor APK.
+"""Compare every X11 native Java declaration against the checksum-locked JNI donor.
 
 Read DEX directly so this check needs neither an Android device nor a decompiler.
 This catches ABI mismatches before JNI RegisterNatives aborts the app process.
@@ -101,7 +101,7 @@ def main():
     expected, actual = map(apk_declarations, sys.argv[1:])
     if expected != actual:
         raise SystemExit('X11 JNI mismatch!\nMissing: ' + repr(sorted(expected-actual)) + '\nUnexpected: ' + repr(sorted(actual-expected)))
-    print(f'Validated {len(expected)} X11 native method names, descriptors and static flags against the official APK.')
+    print(f'Validated {len(expected)} X11 native method names, descriptors and static flags against the locked donor APK.')
     verify_native_zip(sys.argv[2])
 
 

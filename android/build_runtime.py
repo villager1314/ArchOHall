@@ -16,7 +16,6 @@ from prepare_project import REPO, WORK, PROJECT, LOCK
 CACHE = WORK / 'downloads'
 BASE = 'https://packages.termux.dev/apt/termux-main/'
 TERMUX_APK = 'https://github.com/termux/termux-app/releases/download/v0.118.3/termux-app_v0.118.3%2Bgithub-debug_arm64-v8a.apk'
-X11_APK = 'https://github.com/termux/termux-x11/releases/download/nightly/termux-x11-universal-debug.apk'
 PAIRS = [('data/data/com.termux', 'data/data/com.archoh'),
          ('data/user/0/com.termux', 'data/user/0/com.archoh'),
          ('"com.termux"', '"com.archoh"'), ("'com.termux'", "'com.archoh'"),
@@ -75,7 +74,16 @@ def main():
     sums = download('https://github.com/termux/termux-app/releases/download/v0.118.3/termux-app_v0.118.3%2Bgithub-debug_sha256sums', 'termux-sha256sums')
     expected = next(line.split()[0] for line in sums.read_text().splitlines() if line.endswith('github-debug_arm64-v8a.apk'))
     termux_apk = download(TERMUX_APK, 'termux.apk', expected)
-    x11_apk = download(X11_APK, 'x11.apk', LOCK['x11_apk_sha256'])
+    # The upstream nightly asset is mutable. Preserve the exact JNI donor that
+    # the fixed-signature 0.04 build already validated against the pinned source.
+    retained=list((WORK/'x11-retained').rglob('ArchOHall-0.04-arm64.apk'))
+    if len(retained)!=1:
+        raise RuntimeError('Expected the retained, checksum-locked 0.04 X11 donor APK')
+    donor=retained[0].read_bytes()
+    if hashlib.sha256(donor).hexdigest()!=LOCK['x11_retained_sha256']:
+        raise RuntimeError('Retained X11 donor checksum mismatch')
+    x11_apk=CACHE/'x11.apk'
+    x11_apk.write_bytes(donor)
     with zipfile.ZipFile(termux_apk) as apk:
         bootstrap = zipfile.ZipFile(io.BytesIO(apk.read('lib/arm64-v8a/libtermux-bootstrap.so')))
         termux_jni = apk.read('lib/arm64-v8a/libtermux.so')

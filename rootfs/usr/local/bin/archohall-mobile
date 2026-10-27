@@ -19,7 +19,9 @@ export KWIN_DEVICE_SKIPS_INPUT_METHOD=_none_
 # X11 nesting reports mouse input even when Android was touched.
 if [[ -x /usr/bin/plasma-keyboard || -x /usr/bin/maliit-keyboard ]] && command -v kwriteconfig6 >/dev/null; then
     input_method=$(kreadconfig6 --file kwinrc --group Wayland --key InputMethod 2>/dev/null || true)
-    if [[ -z $input_method ]]; then
+    if [[ -z $input_method || $input_method == /usr/share/applications/org.kde.plasma.keyboard.desktop || $input_method == /usr/share/applications/com.github.maliit.keyboard.desktop ]]; then
+        config="${XDG_CONFIG_HOME:-$HOME/.config}/kwinrc"
+        if [[ -f $config && ! -e $config.before-archohall-keyboard ]]; then cp -p "$config" "$config.before-archohall-keyboard"; fi
         kwriteconfig6 --file kwinrc --group Wayland --key InputMethod /usr/local/share/applications/org.archohall.keyboard.desktop
     fi
 fi

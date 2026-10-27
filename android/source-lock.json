@@ -6,5 +6,7 @@
   "version_name": "0.05",
   "version_code": 7,
   "compat_run_id": 40464534205,
-  "compat_sha256": "8997a9cbf09361ce8614fda5925f21eb8bcd652ccd303f54433c40a1f58d28e4"
+  "compat_sha256": "8997a9cbf09361ce8614fda5925f21eb8bcd652ccd303f54433c40a1f58d28e4",
+  "x11_retained_run_id": 40487016574,
+  "x11_retained_sha256": "9fc2a385ff2ffd9ba9890b9b2bae3e7dbd933550b8a74c6df477451c3ca3ab8b"
 }

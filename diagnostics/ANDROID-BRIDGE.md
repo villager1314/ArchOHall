@@ -10,7 +10,7 @@ Stop the desktop before running this action. It preserves the imported container
 | Feature | Implementation and scope |
 | --- | --- |
 | App icons / QML effects | KWin retains its QPainter compatibility backend; Plasma and the keyboard use OpenGL through Mesa llvmpipe. No Qt Quick raster backend or diagnostic window. |
-| Virtual keyboard | Select the installed Plasma Keyboard (Maliit fallback) through KWin's `Wayland/InputMethod` setting. A wrapper gives the keyboard the same working Qt Quick renderer as Plasma. `KWIN_IM_SHOW_ALWAYS=1` and the nested-session input override allow touch represented as mouse input. An existing nonempty user-selected input method is preserved. |
+| Virtual keyboard | Select the installed Plasma Keyboard (Maliit fallback) through KWin's `Wayland/InputMethod` setting. A wrapper gives the keyboard the same working Qt Quick renderer as Plasma. `KWIN_IM_SHOW_ALWAYS=1` and the nested-session input override allow touch represented as mouse input. A custom user-selected input method is preserved; the stock Plasma/Maliit launchers use the renderer wrapper. |
 | Audio output | Run the app-private PulseAudio process in foreground mode, expose only a private UNIX socket, try Android AAudio output then OpenSL ES. No microphone source is loaded. Failure is logged to `~/.archohall/audio.log` and does not abort the desktop. |
 | Battery tile | Android battery broadcasts provide percentage and charging status; missing/stale data is shown as unknown. |
 | Linux battery API / status bar | A read-only UPower facade runs on a separate container-local D-Bus and publishes the same Android snapshot. It does not claim the Android system bus, run a real power-management daemon, or invent battery energy/time estimates. |
@@ -76,3 +76,12 @@ readback on the actual device. If audio or readback fails, preserve `audio.log` 
 - Android settings panels: https://developer.android.com/reference/android/provider/Settings.Panel
 - UPower D-Bus API: https://upower.freedesktop.org/docs/UPower/
 - Termux PulseAudio modules: https://github.com/termux/termux-packages/tree/master/packages/pulseaudio
+
+## Retained X11 donor
+
+The upstream nightly APK changed after 0.04. Builds consume the exact previously
+validated 0.04 artifact from run 40487016574, verify its pinned APK SHA-256, preserve
+its ARM64 X11 native library, and compare all new X11 Java native declarations
+against that donor. The X11 source revision remains 29d4460. The checksum check is
+not disabled or updated to an unrelated nightly. Retained build artifacts currently
+expire after 30 days; a future build must retain this donor durably or fail closed.
