@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 mkdir -p /compat-results /tmp/compat-ci
-id compat-ci >/dev/null 2>&1 || useradd -m -u 1000 compat-ci
-chown compat-ci:compat-ci /tmp/compat-ci
+ci_user=$(getent passwd 1000 | cut -d: -f1) || true
+if [[ -z "$ci_user" ]]; then useradd -m -u 1000 compat-ci; ci_user=compat-ci; fi
+chown 1000 /tmp/compat-ci
 chmod 700 /tmp/compat-ci
 # Reproduce unavailable udev monitoring without changing the runner kernel.
 cat > /tmp/no-udev.c <<'EOF'
@@ -26,7 +27,7 @@ for ((i=0;i<100;i++)); do
     sleep .1
 done
 ((ready==1)) || { cat /compat-results/xvfb.log; exit 1; }
-runuser -u compat-ci -- env DISPLAY=:77 XDG_RUNTIME_DIR=/tmp/compat-ci \
+runuser -u "$ci_user" -- env DISPLAY=:77 XDG_RUNTIME_DIR=/tmp/compat-ci \
     QT_QPA_PLATFORM=xcb dbus-run-session -- \
     env LD_PRELOAD=/tmp/no-udev.so /usr/local/bin/archohall-kwin-compat \
     --x11-display :77 --width 720 --height 1280 --socket archohall-compat-ci \
@@ -36,7 +37,7 @@ ready=0
 for ((i=0;i<60;i++)); do
     if ! kill -0 "$kpid" 2>/dev/null; then break; fi
     if [[ -S /tmp/compat-ci/archohall-compat-ci ]]; then
-        if runuser -u compat-ci -- env XDG_RUNTIME_DIR=/tmp/compat-ci \
+        if runuser -u "$ci_user" -- env XDG_RUNTIME_DIR=/tmp/compat-ci \
             WAYLAND_DISPLAY=archohall-compat-ci timeout 5 wayland-info \
             > /compat-results/wayland-info.txt 2>&1; then
             ready=1; break

@@ -2,6 +2,11 @@
 set -euo pipefail
 pacman-key --init
 pacman-key --populate archlinuxarm
+remove_packages=()
+for package in linux-aarch64 linux-firmware; do
+    if pacman -Q "$package" >/dev/null 2>&1; then remove_packages+=("$package"); fi
+done
+if (( ${#remove_packages[@]} )); then pacman -Rns --noconfirm "${remove_packages[@]}"; fi
 pacman -Syu --noconfirm --needed base-devel cmake ninja extra-cmake-modules \
     kwin qt6-tools qt6-5compat qt6-wayland qt6-svg qt6-declarative \
     wayland-protocols plasma-wayland-protocols vulkan-headers kdoctools \

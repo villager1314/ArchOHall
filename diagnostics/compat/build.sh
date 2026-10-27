@@ -20,11 +20,12 @@ gpg --homedir "$work/gnupg" --batch --verify "$work/base.tar.gz.sig" "$work/base
 tar --numeric-owner -xpf "$work/base.tar.gz" -C "$root" --exclude='./dev/*' --exclude='dev/*'
 cleanup() {
     chroot "$root" /usr/bin/gpgconf --homedir /etc/pacman.d/gnupg --kill all || true
-    for target in "$root/proc" "$root/dev"; do
+    for target in "$root/proc" "$root/dev" "$root"; do
         if mountpoint -q "$target"; then umount -R "$target"; fi
     done
 }
 trap cleanup EXIT
+mount --bind "$root" "$root"
 mount --rbind /dev "$root/dev"
 mount --make-rslave "$root/dev"
 mount -t proc proc "$root/proc"
