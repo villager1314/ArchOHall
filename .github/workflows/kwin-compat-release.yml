@@ -46,7 +46,7 @@ jobs:
           assert '@QT_' not in template and '@PACKAGE_' not in template
           dest = Path('release-files')
           (dest/'install-kwin-compat.sh').write_text(template)
-          for name in [package.name, 'kwin-upstream-source.tar.gz', 'build-packages.txt', 'README.txt', 'kwin.log', 'result.txt']:
+          for name in [package.name, 'kwin-upstream-source.tar.gz', 'build-packages.txt', 'README.txt', 'kwin.log', 'wayland-info.txt', 'xvfb.log', 'result.txt']:
               (dest/name).write_bytes((outputs/name).read_bytes())
           with tarfile.open(dest/'compat-build-scripts.tar.xz', 'w:xz') as t:
               t.add(outputs/'build-scripts', arcname='build-scripts')
