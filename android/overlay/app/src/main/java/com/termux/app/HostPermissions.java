@@ -16,7 +16,10 @@ import java.nio.file.LinkOption;
 public final class HostPermissions {
     public static final int STORAGE = 4401;
     public static boolean storageGranted(Context c) {
-        if (Build.VERSION.SDK_INT >= 30) return Environment.isExternalStorageManager();
+        if (Build.VERSION.SDK_INT >= 30) {
+            try {return Environment.isExternalStorageManager();}
+            catch (RuntimeException error) {android.util.Log.w("ArchOHall","Shared storage status is unavailable",error);return false;}
+        }
         return c.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
     }
     public static void requestStorage(Activity a) {
