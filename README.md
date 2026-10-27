@@ -13,7 +13,7 @@
 默认使用 llvmpipe 软件渲染；骁龙 8 Elite GPU 加速后续单独验证。
 当前启动的是最小 mobile shell，不是完整的 systemd/SDDM 登录会话；部分设置和后台服务可能不可用。
 
-Actions 产物使用临时调试签名；固定签名分发包与其不同，后续更新应保持同一签名。\n\n## 构建和下载
+Actions 新构建必须配置 `ARCHOHALL_SIGNING_BUNDLE` Secret，使用与固定签名分发包相同的保留密钥；缺少配置即停止。此前 Actions 临时签名包需要一次卸载迁移，之后可覆盖更新。\n\n## 构建和下载
 
 修改构建相关文件会触发测试构建；也可以在 Actions → Build ArchOHall rootfs → Run workflow 手动运行。
 构建使用 `ubuntu-24.04-arm` 原生 ARM64 runner，在临时 chroot 中安装软件，再导出普通根目录 tar.xz。

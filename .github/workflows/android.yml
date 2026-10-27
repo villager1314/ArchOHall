@@ -17,6 +17,10 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
+      - name: Require retained signing configuration
+        env:
+          ARCHOHALL_SIGNING_BUNDLE: ${{ secrets.ARCHOHALL_SIGNING_BUNDLE }}
+        run: python3 android/sign_apk.py --check-config
       - name: Use JDK 17
         run: |
           echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
@@ -39,10 +43,14 @@ jobs:
           ./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace
       - name: Verify X11 JNI interfaces and native APK packaging
         run: python3 android/verify_x11_jni.py .android-build/downloads/x11.apk .android-build/project/app/build/outputs/apk/debug/app-debug.apk
+      - name: Sign with retained ArchOHall key
+        env:
+          ARCHOHALL_SIGNING_BUNDLE: ${{ secrets.ARCHOHALL_SIGNING_BUNDLE }}
+        run: python3 android/sign_apk.py .android-build/project/app/build/outputs/apk/debug/app-debug.apk dist/android/ArchOHall-0.02-arm64.apk
       - name: Inspect APK and collect output
         run: |
           mkdir -p dist/android
-          cp .android-build/project/app/build/outputs/apk/debug/app-debug.apk dist/android/ArchOHall-0.02-arm64.apk
+          python3 android/verify_x11_jni.py .android-build/downloads/x11.apk dist/android/ArchOHall-0.02-arm64.apk
           cp .android-build/project/app/src/main/assets/runtime-manifest.json dist/android/
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/android/ArchOHall-0.02-arm64.apk
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging dist/android/ArchOHall-0.02-arm64.apk

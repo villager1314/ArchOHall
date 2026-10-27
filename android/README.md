@@ -31,7 +31,9 @@ SAF 支持直接的 `tar.xz`，或包含 `archohall-aarch64.tar.xz` 的 ZIP。�
 构建阶段需要网络，安装和导入阶段不需要。软件包版本和运行包校验值随 APK 的 `runtime-manifest.json` 提供。
 APK 尚需 ARM64 实机验证；CI 测试不能证明安卓 GPU、触摸和所有 PRoot 系统调用都可用。
 
-当前使用 CI 调试签名；配置持久发布密钥前，不同构建可能不能直接覆盖安装。不要把其他应用的数据迁移进此实验版本。
+Actions 分发产物现在必须使用保留的固定签名，与单独提供的 0.01.2 / 0.02 固定签名 APK 相同。缺少签名 Secret 或证书校验失败时构建停止，不会回退到 runner 临时签名。此前的 Actions 临时签名 APK 无法覆盖迁移到此签名，需要一次卸载重装。不要把其他应用的数据迁移进此实验版本。
+
+仓库管理员在 Settings → Secrets and variables → Actions 添加 `ARCHOHALL_SIGNING_BUNDLE`，其值为私密提供的 JSON 文件全文（alias、password、keystore_base64）。不要把文件提交到仓库或上传到公开构建产物。`sign_apk.py` 在临时目录使用密钥并在结束时清理，校验证书 SHA-256 为 `395043a9142654bea4cf43699c719dd77fd7276b4dc286f4399dfb273732de02`。
 
 ## 许可与来源
 
