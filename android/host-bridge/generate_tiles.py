@@ -49,7 +49,7 @@ def main():
         directory = DEST / plugin
         ui = directory / 'contents/ui'
         ui.mkdir(parents=True, exist_ok=True)
-        (directory/'metadata.json').write_text(json.dumps({'KPackageStructure':'KPackage/GenericQML', 'KPlugin':{'Id':plugin,'Name':title,'Description':'ArchOHall Android host bridge','Icon':icon,'License':'GPL-3.0-or-later','Version':'0.05'}}, ensure_ascii=False,indent=2)+'\n')
+        (directory/'metadata.json').write_text(json.dumps({'KPackageStructure':'KPackage/GenericQML', 'KPlugin':{'Id':plugin,'Name':title,'Description':'ArchOHall Android host bridge','Icon':icon,'License':'GPL-3.0-or-later','Version':'0.06'}}, ensure_ascii=False,indent=2)+'\n')
         (ui/'bridge.js').write_text(JS)
         (ui/'main.qml').write_text(f'''// SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
@@ -65,19 +65,62 @@ QS.QuickSetting {{
     icon: "{icon}"
     status: host.schema === 1 ? ({status}) : "Android 桥接未连接"
     enabled: host.schema === 1 && ({enabled})
-    settingsCommand: "archohall-host {action}"
+    settingsCommand: "/usr/local/bin/archohall-host {action}"
     Component.onCompleted: Bridge.read(function(s) {{ root.host = s; }})
     Timer {{ interval: 2000; running: true; repeat: true; onTriggered: Bridge.read(function(s) {{ root.host = s; }}) }}
     function toggle() {{
         MobileShellState.ShellDBusClient.closeActionDrawer();
-        MobileShell.ShellUtil.executeCommand("archohall-host {action}");
+        MobileShell.ShellUtil.executeCommand("/usr/local/bin/{'archohall-controls' if key in ('audio', 'brightness') else 'archohall-host'} {action}");
     }}
+}}
+''')
+    controls = REPO / 'rootfs/usr/local/share/archohall/controls'
+    controls.mkdir(parents=True, exist_ok=True)
+    (controls/'bridge.js').write_text(JS)
+    for control, title in [('volume', 'Android 媒体音量'), ('brightness', '桌面窗口亮度')]:
+        initial = '(host.volumeMax > 0 ? host.volume*100/host.volumeMax : 0)' if control == 'volume' else '(host.brightness >= 0 ? host.brightness*100 : 50)'
+        (controls/('Volume.qml' if control == 'volume' else 'Brightness.qml')).write_text(f'''import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+import org.kde.plasma.private.mobileshell as MobileShell
+import "bridge.js" as Bridge
+ApplicationWindow {{
+    id: root
+    visible: true
+    width: 420
+    height: 240
+    title: "{title}"
+    property var host: ({{}})
+    Component.onCompleted: Bridge.read(function(s) {{ root.host = s; slider.value = {initial}; }})
+    ColumnLayout {{
+        anchors.fill: parent
+        anchors.margins: 24
+        Label {{ text: root.title; font.pixelSize: 20 }}
+        Label {{ text: "{('调节手机媒体音量' if control == 'volume' else '仅影响 ArchOHall 桌面窗口')}"; wrapMode: Text.Wrap; Layout.fillWidth: true }}
+        Slider {{
+            id: slider
+            Layout.fillWidth: true
+            from: {('0' if control == 'volume' else '2')}
+            to: 100
+            stepSize: 1
+            enabled: root.host.numericControls === true
+            onMoved: debounce.restart()
+        }}
+        Label {{ text: root.host.numericControls === true ? Math.round(slider.value) + "%" : "Android 桥接未连接或版本过旧" }}
+        Button {{ text: "关闭"; onClicked: root.close() }}
+    }}
+    Timer {{
+        id: debounce
+        interval: 150
+        onTriggered: MobileShell.ShellUtil.executeCommand("/usr/local/bin/archohall-host {control}-set " + Math.round(slider.value))
+    }}
+    onClosing: Qt.quit()
 }}
 ''')
     for key,title,icon in [('screenshot','屏幕截图','view-fullscreen-symbolic'),('record','录制 Linux 桌面','camera-video-symbolic')]:
         plugin='org.kde.plasma.quicksetting.'+key
         directory=DEST/plugin;ui=directory/'contents/ui';ui.mkdir(parents=True,exist_ok=True)
-        (directory/'metadata.json').write_text(json.dumps({'KPackageStructure':'KPackage/GenericQML','KPlugin':{'Id':plugin,'Name':title,'Description':'Linux X11 capture; no Android display access','Icon':icon,'License':'GPL-3.0-or-later','Version':'0.05'}},ensure_ascii=False,indent=2)+'\n')
+        (directory/'metadata.json').write_text(json.dumps({'KPackageStructure':'KPackage/GenericQML','KPlugin':{'Id':plugin,'Name':title,'Description':'Linux X11 capture; no Android display access','Icon':icon,'License':'GPL-3.0-or-later','Version':'0.06'}},ensure_ascii=False,indent=2)+'\n')
         command='screenshot' if key=='screenshot' else 'toggle'
         (ui/'main.qml').write_text(f'''// SPDX-License-Identifier: GPL-3.0-or-later
 import org.kde.plasma.private.mobileshell.quicksettingsplugin as QS
@@ -90,7 +133,7 @@ QS.QuickSetting {{
     enabled: false
     function toggle() {{
         MobileShellState.ShellDBusClient.closeActionDrawer();
-        MobileShell.ShellUtil.executeCommand("archohall-capture {command}");
+        MobileShell.ShellUtil.executeCommand("/usr/local/bin/archohall-capture {command}");
     }}
 }}
 ''')

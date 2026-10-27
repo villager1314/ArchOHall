@@ -61,10 +61,11 @@ class RequestTests(unittest.TestCase):
                         p=pending[0];received.append(p.read_text().strip());p.with_suffix('.reply').write_text('OK\n');p.unlink();return
                     time.sleep(.02)
             worker=threading.Thread(target=host);worker.start()
-            result=subprocess.run(['bash',str(BIN/'archohall-host'),'wifi'],env=dict(os.environ,ARCHOHALL_HOST_BRIDGE=d),capture_output=True,text=True)
+            result=subprocess.run(['bash',str(BIN/'archohall-host'),'clipboard-set'],input='中文\nline2\n',env=dict(os.environ,ARCHOHALL_HOST_BRIDGE=d),capture_output=True,text=True)
             worker.join()
             self.assertEqual(result.returncode,0,result.stderr)
-            self.assertEqual(received,['wifi'])
+            import base64
+            self.assertEqual(received,['clipboard-set:'+base64.b64encode('中文\nline2\n'.encode()).decode()])
             self.assertEqual(list(inbox.iterdir()),[])
 
 
@@ -104,11 +105,17 @@ class BusTests(unittest.IsolatedAsyncioTestCase):
                 device=bus.get_proxy_object('org.freedesktop.UPower',power.DEVICE,intro).get_interface('org.freedesktop.DBus.Properties')
                 props=await device.call_get_all('org.freedesktop.UPower.Device')
                 self.assertEqual(props['Percentage'].value,43.0)
+                self.assertEqual(props['BatteryLevel'].value,1)
                 state.write_text(json.dumps({'schema':1,'timestamp':time.time()*1000,'battery':44,'plugged':True,'batteryStatus':2}))
                 await asyncio.sleep(2.2)
                 props=await device.call_get_all('org.freedesktop.UPower.Device')
                 self.assertEqual(props['Percentage'].value,44.0)
                 self.assertEqual(props['State'].value,1)
+                state.write_text(json.dumps({'schema':1,'timestamp':100,'battery':44}))
+                await asyncio.sleep(2.2)
+                props=await device.call_get_all('org.freedesktop.UPower.Device')
+                self.assertFalse(props['IsPresent'].value)
+                self.assertEqual(props['BatteryLevel'].value,0)
             finally:
                 if bus:bus.disconnect()
                 for child in (service,daemon):
@@ -144,6 +151,46 @@ esac
                 self.assertIn('usr/local/bin/archohall-keyboard',names)
                 self.assertIn('usr/local/share/archohall/quicksettings/org.kde.plasma.quicksetting.battery/contents/ui/main.qml',names)
                 self.assertNotIn('usr/local/share/archohall/quicksettings/org.kde.plasma.quicksetting.settingsapp/metadata.json',names)
+
+
+
+
+class ConfigurationTests(unittest.TestCase):
+    def test_idempotent_configuration_preserves_preferences_and_fixes_import_permissions(self):
+        loader=importlib.machinery.SourceFileLoader('configure',str(BIN/'archohall-configure'))
+        spec=importlib.util.spec_from_loader(loader.name,loader)
+        module=importlib.util.module_from_spec(spec);loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d)
+            for name,content in {'etc/pacman.conf':'[options]\nDownloadUser = alpm\n[core]\nServer = example\n',
+                                 'etc/sudoers':'root ALL=(ALL:ALL) ALL\n',
+                                 'usr/bin/sudo':'binary placeholder',
+                                 'home/arch/.config/plasmakeyboardrc':'[General]\nenabledLocales=fr_FR,en_US\n',
+                                 'run/archohall-host/audio.env':'PULSE_SERVER=tcp:127.0.0.1:47130\n'}.items():
+                p=root/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(content)
+            (root/'usr/bin/sudo').chmod(0o755)
+            module.configure(root,validate_sudo=False)
+            first={p.relative_to(root):p.read_bytes() for p in root.rglob('*') if p.is_file()}
+            module.configure(root,validate_sudo=False)
+            second={p.relative_to(root):p.read_bytes() for p in root.rglob('*') if p.is_file()}
+            self.assertEqual(first,second)
+            self.assertEqual((root/'usr/bin/sudo').stat().st_mode & 0o4777,0o4755)
+            self.assertIn('NOPASSWD', (root/'etc/sudoers').read_text())
+            self.assertIn('DisableSandbox', (root/'etc/pacman.conf').read_text())
+            self.assertNotIn('\nDownloadUser =', (root/'etc/pacman.conf').read_text())
+            self.assertIn('enabledLocales=fr_FR,en_US', (root/'home/arch/.config/plasmakeyboardrc').read_text())
+            self.assertIn('enable-shm = no', (root/'etc/pulse/client.conf.d/90-archohall.conf').read_text())
+
+    def test_oversize_and_invalid_control_requests_are_not_published(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d)/'requests').mkdir()
+            env=dict(os.environ,ARCHOHALL_HOST_BRIDGE=d)
+            for args in [('volume-set','101'),('brightness-set','-1'),('volume-set','1;id')]:
+                p=subprocess.run(['bash',str(BIN/'archohall-host'),*args],env=env,capture_output=True)
+                self.assertNotEqual(p.returncode,0)
+            p=subprocess.run(['bash',str(BIN/'archohall-host'),'clipboard-set'],input=b'a'*262145,env=env,capture_output=True)
+            self.assertNotEqual(p.returncode,0)
+            self.assertEqual(list((Path(d)/'requests').iterdir()),[])
 
 
 if __name__=='__main__':unittest.main()

@@ -1,3 +1,17 @@
+## Android 0.06
+
+覆盖安装保留固定包名、签名、现有容器和应用。本次只发布 APK，不另发 rootfs 镜像。停止桌面后，点击 **应用 rootfs 更新与 Android 桥接**，APK 会备份并更新受管理的容器脚本，联网补齐缺失组件；不重新导入容器。
+
+- 合并手机验证过的 150% 缩放、Plasma llvmpipe OpenGL、默认菜单缓存重建、Shell 环境与电池 BatteryLevel 修复。
+- 针对导入器去掉 setuid 位的行为，只恢复容器内 sudo 的 setuid 位，配置 arch 免密 sudo；不设置默认密码、不配置宽泛 polkit 放行。
+- 补齐 plasma-settings、fastfetch、wl-clipboard、PulseAudio 客户端与 ALSA 输出插件；拒绝升级任何已安装的包。
+- 修正设置首页和虚拟键盘模块跳转；Android 桥接开关的点击/长按分别执行 Linux 内部控件或对应 Android 面板。
+- 声音走带私有 cookie 的本机 TCP，关闭跨 PRoot 共享内存，设置默认输出并从容器内验证客户端认证。D-Bus 激活应用继承相同音频环境。
+- 加入 Linux 内部亮度/媒体音量滑块与 Wayland 到 Android 的文字剪贴板出口；这些新增交互和实际扬声器声音仍需手机验证。
+- 图片/文件剪贴板、完整终端键盘、Discover 商店未在本次实现。
+
+详见 [修复记录与验证边界](../diagnostics/ANDROID-006.md)。
+
 ## Android 0.05
 
 保留 `com.archoh` 与固定签名，可覆盖安装 0.04 并保留容器。先停止桌面，再点击 **修复桌面组件与 Android 桥接**。该操作备份原文件、部署桥接，并联网补齐键盘、音量、截图及录屏组件；不重新导入 rootfs。

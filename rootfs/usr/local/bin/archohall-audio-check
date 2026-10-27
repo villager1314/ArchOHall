@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'PulseAudio endpoint: %s\n' "${PULSE_SERVER:-default configuration}"
+pactl info
+pactl list short sinks
+if [[ ${1:-} == --test ]]; then
+    sample=$(mktemp --suffix=.wav)
+    trap 'rm -f "$sample"' EXIT
+    python3 - "$sample" <<'PY'
+import math, struct, sys, wave
+with wave.open(sys.argv[1], 'wb') as f:
+    f.setparams((1, 2, 44100, 0, 'NONE', 'not compressed'))
+    f.writeframes(b''.join(struct.pack('<h', int(2000*math.sin(2*math.pi*440*i/44100))) for i in range(11025)))
+PY
+    paplay "$sample"
+fi

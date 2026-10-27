@@ -2,7 +2,7 @@
 # Use the image's synchronized repositories. Never perform a blind partial Qt/KDE upgrade.
 set -euo pipefail
 [[ $(id -u) == 0 ]] || { echo 'Run inside the container as simulated root.' >&2; exit 1; }
-packages=(plasma-keyboard plasma-pa python-dbus-fast ffmpeg libnotify)
+packages=(plasma-keyboard plasma-pa python-dbus-fast ffmpeg libnotify plasma-settings fastfetch wl-clipboard libpulse alsa-plugins)
 plan=$(mktemp)
 trap 'rm -f "$plan"' EXIT
 pacman -Sp --needed --print-format '%n %v' "${packages[@]}" > "$plan"
@@ -15,7 +15,7 @@ while read -r package version; do
         fi
     fi
 done < "$plan"
-pacman -S --needed --noconfirm "${packages[@]}"
+pacman -S --needed --noconfirm --disable-sandbox "${packages[@]}"
 for binary in /usr/bin/plasma-keyboard /usr/bin/ffmpeg; do
     if ldd "$binary" | grep -q 'not found'; then ldd "$binary"; exit 1; fi
 done

@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if (( $# == 0 )); then
+    if command -v plasma-settings >/dev/null; then exec plasma-settings; fi
+    if command -v systemsettings >/dev/null; then exec systemsettings; fi
+    echo '缺少设置程序：请应用桌面更新安装 plasma-settings' >&2
+    exit 1
+fi
+module=$1
+[[ $module != kcm_mobile_onscreenkeyboard ]] || module=kcm_virtualkeyboard
+[[ $module =~ ^kcm_[A-Za-z0-9_]+$ && $# == 1 ]] || { echo 'Invalid settings module' >&2; exit 2; }
+exec /usr/bin/kcmshell6 "$module"

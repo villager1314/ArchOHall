@@ -3,7 +3,7 @@
 set -euo pipefail
 source_dir=/usr/local/share/archohall/quicksettings
 target_dir=/usr/share/plasma/quicksettings
-backup=/usr/local/share/archohall/quicksettings-before-005
+backup=/usr/local/share/archohall/quicksettings-before-006
 if [[ ${1:-} == --restore ]]; then
     for directory in "$source_dir"/*; do
         name=${directory##*/}
@@ -14,7 +14,7 @@ if [[ ${1:-} == --restore ]]; then
             rm -rf -- "$target_dir/$name"
         fi
     done
-    rm -f /usr/local/share/archohall/.tiles-005
+    rm -f /usr/local/share/archohall/.tiles-006
     exit
 fi
 mkdir -p "$target_dir" "$backup"
@@ -27,4 +27,4 @@ for directory in "$source_dir"/*; do
     mkdir -p "$target_dir/$name"
     cp -a "$directory/." "$target_dir/$name/"
 done
-touch /usr/local/share/archohall/.tiles-005
+touch /usr/local/share/archohall/.tiles-006

@@ -65,7 +65,7 @@ public final class ImportService extends Service implements OfflineRuntime.Monit
         File work=new File(getFilesDir(),"import-work");
         try{
             log=new BufferedWriter(new OutputStreamWriter(new FileOutputStream(new File(getFilesDir(),"import.log"),true),StandardCharsets.UTF_8));
-            log("──── ArchOHall 0.05 ────");
+            log("──── ArchOHall 0.06 ────");
             if(SessionController.running(this))throw new IOException("请先停止桌面，再导入容器");
             OfflineRuntime.ensure(this,this);state.runtimeReady=true;
             if(SUPPORT.equals(action)) {GuestDesktopSupport.install(this,this);state.phase="桌面桥接与组件已安装";state.detail="可启动桌面验证键盘、音频、电量和快捷控制";}
@@ -157,5 +157,6 @@ public final class ImportService extends Service implements OfflineRuntime.Monit
         if(!staged.renameTo(current)){if(hadCurrent)backup.renameTo(current);throw new IOException("无法启用新容器，已尝试恢复旧容器");}
         if(hadCurrent)log("原容器保留在应用私有目录："+backup.getName());
         log("容器完整性检查通过，已启用");
+        GuestDesktopSupport.deploy(this,this);
     }
 }

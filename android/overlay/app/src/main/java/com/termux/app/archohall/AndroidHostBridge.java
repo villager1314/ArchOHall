@@ -57,7 +57,7 @@ public final class AndroidHostBridge implements Application.ActivityLifecycleCal
             int processed = 0;
             if (pending != null) for (File f : pending) {
                 if (++processed > 32) break;
-                if (Files.isSymbolicLink(f.toPath()) || f.length() > 1024 || System.currentTimeMillis()-f.lastModified() > 30000) { f.delete(); continue; }
+                if (Files.isSymbolicLink(f.toPath()) || f.length() > 350000 || System.currentTimeMillis()-f.lastModified() > 30000) { f.delete(); continue; }
                 String action = new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8).trim();
                 f.delete();
                 String id = f.getName().replace(".request", ".reply");
@@ -86,6 +86,8 @@ public final class AndroidHostBridge implements Application.ActivityLifecycleCal
             s.put("batteryPresent",battery.getBooleanExtra(BatteryManager.EXTRA_PRESENT,true));
         }
         s.put("model",Build.MODEL);
+        s.put("clipboardWrite",true);
+        s.put("numericControls",true);
         AudioManager audio=(AudioManager)app.getSystemService(Context.AUDIO_SERVICE);
         s.put("volume",audio.getStreamVolume(AudioManager.STREAM_MUSIC));
         s.put("volumeMax",audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC));
@@ -110,6 +112,21 @@ public final class AndroidHostBridge implements Application.ActivityLifecycleCal
         app.startActivity(intent);
     }
     private void dispatch(String action) throws Exception {
+        HostBridgeMessage message=HostBridgeMessage.parse(action);
+        if (message.action.equals("clipboard-set")) {
+            if(desktop==null||visible!=desktop)throw new IOException("请在桌面处于前台时复制");
+            String text=message.text;
+            ClipboardManager clipboard=(ClipboardManager)app.getSystemService(Context.CLIPBOARD_SERVICE);
+            ClipData old=clipboard.getPrimaryClip();
+            if(old==null||old.getItemCount()==0||!text.contentEquals(old.getItemAt(0).coerceToText(app)))
+                clipboard.setPrimaryClip(ClipData.newPlainText("ArchOHall",text));
+            return;
+        }
+        if(message.action.equals("brightness-set")) {setBrightness(message.value/100f);return;}
+        if(message.action.equals("volume-set")) {
+            AudioManager audio=(AudioManager)app.getSystemService(Context.AUDIO_SERVICE);
+            audio.setStreamVolume(AudioManager.STREAM_MUSIC,Math.round(message.value*audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)/100f),0);return;
+        }
         switch(action){
             case "wifi": open(Build.VERSION.SDK_INT>=29?Settings.Panel.ACTION_WIFI:Settings.ACTION_WIFI_SETTINGS); break;
             case "mobiledata": open(Settings.ACTION_DATA_USAGE_SETTINGS); break;

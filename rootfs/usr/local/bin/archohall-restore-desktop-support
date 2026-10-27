@@ -5,7 +5,17 @@ if [[ -x /usr/local/bin/archohall-install-tiles ]]; then
     /usr/local/bin/archohall-install-tiles --restore
 fi
 while IFS= read -r -d '' backup; do
-    original=${backup%.before-support-005}
+    original=${backup%.before-support-006}
     cp -p "$backup" "$original"
-done < <(find /usr/local -type f -name '*.before-support-005' -print0)
-echo '已恢复备份的脚本和快捷设置；安装的软件包保留。'
+done < <(find /usr/local -type f -name '*.before-support-006' -print0)
+
+while IFS= read -r -d '' backup; do
+    original=${backup%.before-config-006}
+    cp -p "$backup" "$original"
+done < <(find /etc /home/arch/.config /usr/share/plasma/quicksettings -type f -name '*.before-config-006' -print0)
+if [[ -f /usr/local/share/archohall/sudo-mode-before-006 ]]; then
+    chmod "$(cat /usr/local/share/archohall/sudo-mode-before-006)" /usr/bin/sudo
+fi
+rm -f /.archohall-support-006
+
+echo '已恢复备份的脚本、配置和快捷设置；安装的软件包保留。'

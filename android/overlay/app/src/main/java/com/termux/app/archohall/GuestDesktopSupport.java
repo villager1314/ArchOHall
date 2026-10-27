@@ -10,6 +10,15 @@ import java.util.zip.*;
 public final class GuestDesktopSupport {
     public static void install(Context c, OfflineRuntime.Monitor monitor) throws Exception {
         File root=new File(c.getFilesDir(),"containers/archohall");
+        if(!new File(root,".archohall-compat-004").isFile())GuestCompatibility.install(c,monitor);
+        deploy(c,monitor);
+        monitor.phase("安装缺失的桌面组件",0,-1,"使用容器现有软件源；不自动升级 Qt/KDE");
+        run(c,monitor,"/usr/local/bin/archohall-install-extras");
+        run(c,monitor,"/usr/local/bin/archohall-configure");
+        Files.write(new File(root,".archohall-support-006").toPath(),new byte[]{'1'});
+    }
+    public static void deploy(Context c, OfflineRuntime.Monitor monitor) throws Exception {
+        File root=new File(c.getFilesDir(),"containers/archohall");
         if(!new File(root,"usr/bin/kwin_wayland").isFile())throw new IOException("请先导入容器");
         String base=root.getCanonicalPath()+File.separator;
         monitor.phase("应用桌面桥接配置",0,-1,"备份原文件，保留现有容器和应用");
@@ -23,7 +32,7 @@ public final class GuestDesktopSupport {
                 File target=new File(root,name);
                 if(!target.getCanonicalPath().startsWith(base))throw new IOException("桌面支持路径越界");
                 File parent=target.getParentFile();if(!parent.mkdirs()&&!parent.isDirectory())throw new IOException("无法创建桌面支持目录");
-                if(target.exists()&&!new File(target.getPath()+".before-support-005").exists())Files.copy(target.toPath(),new File(target.getPath()+".before-support-005").toPath());
+                if(target.exists()&&!new File(target.getPath()+".before-support-006").exists())Files.copy(target.toPath(),new File(target.getPath()+".before-support-006").toPath());
                 File temp=File.createTempFile(".support-",".tmp",parent);
                 try{
                     try(OutputStream out=new FileOutputStream(temp)){byte[] b=new byte[65536];int n;while((n=zip.read(b))!=-1){total+=n;if(total>8388608)throw new IOException("桌面支持文件过大");out.write(b,0,n);}}
@@ -33,8 +42,7 @@ public final class GuestDesktopSupport {
             }
         }
         run(c,monitor,"/usr/local/bin/archohall-install-tiles");
-        monitor.phase("安装缺失的桌面组件",0,-1,"使用容器现有软件源；不自动升级 Qt/KDE");
-        run(c,monitor,"/usr/local/bin/archohall-install-extras");
+        run(c,monitor,"/usr/local/bin/archohall-configure");
     }
     private static void run(Context c,OfflineRuntime.Monitor monitor,String script)throws Exception{
         String prefix=OfflineRuntime.prefix(c).getAbsolutePath();

@@ -82,7 +82,7 @@ class Battery(ServiceInterface):
     @dbus_property(access=PropertyAccess.READ)
     def WarningLevel(self) -> 'u': return 0 if not self.IsPresent else 4 if self.Percentage <= 5 else 3 if self.Percentage <= 15 else 1
     @dbus_property(access=PropertyAccess.READ)
-    def BatteryLevel(self) -> 'u': return 0
+    def BatteryLevel(self) -> 'u': return 1 if self.IsPresent else 0
     @dbus_property(access=PropertyAccess.READ)
     def Capacity(self) -> 'd': return 0.0
     @dbus_property(access=PropertyAccess.READ)
@@ -146,7 +146,7 @@ async def serve():
         battery.values = battery_properties(battery.state)
         changed = {k: v for k, v in battery.values.items() if old.get(k) != v}
         if changed:
-            changed.update(Online=battery.Online, WarningLevel=battery.WarningLevel)
+            changed.update(BatteryLevel=battery.BatteryLevel, Online=battery.Online, WarningLevel=battery.WarningLevel)
             battery.emit_properties_changed(changed)
         if old_on_battery != power.OnBattery:
             power.emit_properties_changed({'OnBattery': power.OnBattery})

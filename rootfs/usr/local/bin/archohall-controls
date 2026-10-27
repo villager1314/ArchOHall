@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+case "${1:-}" in
+    volume) file=Volume.qml ;;
+    brightness) file=Brightness.qml ;;
+    *) echo 'Unknown desktop control' >&2; exit 2 ;;
+esac
+exec env -u QT_QUICK_BACKEND QSG_RHI_BACKEND=opengl LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe \
+    /usr/lib/qt6/bin/qml "/usr/local/share/archohall/controls/$file"

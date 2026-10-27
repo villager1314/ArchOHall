@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export SHELL=/bin/bash
 if [[ $(id -u) == 0 ]]; then
     echo 'Enter the container as user arch, not root.' >&2
     exit 1
