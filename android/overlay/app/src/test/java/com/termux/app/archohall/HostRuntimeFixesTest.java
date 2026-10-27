@@ -37,4 +37,11 @@ public class HostRuntimeFixesTest {
         assertThrows(IOException.class,()->HostRuntimeFixes.apply(root.toFile(),new File("/apk-path")));
         assertEquals("custom script",read("bin/am"));
     }
+    @Test public void oldDesktopLauncherReadsApkPointerAfterUpgrade() {
+        String input="env CLASSPATH='/old/base.apk' /system/bin/app_process /system/bin com.termux.x11.CmdEntryPoint :0 &\necho keep\n";
+        String output=HostRuntimeFixes.rewriteLaunch(input,"/files/apk-path");
+        assertFalse(output.contains("/old/base.apk"));assertTrue(output.contains("$(cat '/files/apk-path')"));
+        assertTrue(output.contains("CmdEntryPoint :0 &\necho keep\n"));
+        assertEquals(output,HostRuntimeFixes.rewriteLaunch(output,"/files/apk-path"));
+    }
 }

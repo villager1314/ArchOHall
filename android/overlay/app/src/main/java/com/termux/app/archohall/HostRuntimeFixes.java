@@ -8,7 +8,18 @@ import java.nio.file.*;
 public final class HostRuntimeFixes {
     private static String quote(String s) { return "'" + s.replace("'", "'\\''") + "'"; }
     public static synchronized void apply(Context context) throws IOException {
-        apply(OfflineRuntime.prefix(context), new File(context.getFilesDir(), "apk-path"));
+        File pointer=new File(context.getFilesDir(), "apk-path");
+        apply(OfflineRuntime.prefix(context), pointer);
+        File launch=new File(context.getFilesDir(), "home/.archohall/launch.sh");
+        if(launch.isFile()) {
+            String before=new String(Files.readAllBytes(launch.toPath()),StandardCharsets.UTF_8);
+            String after=rewriteLaunch(before,pointer.getAbsolutePath());
+            if(!after.equals(before)) {
+                Path backup=new File(launch.getParentFile(),"launch.sh.before-004").toPath();
+                if(!Files.exists(backup))Files.copy(launch.toPath(),backup);
+                atomic(launch,after);
+            }
+        }
     }
     public static synchronized void apply(File prefix, File apkPath) throws IOException {
         File am = new File(prefix, "bin/am");
@@ -51,6 +62,17 @@ public final class HostRuntimeFixes {
                 result.append("export CLASSPATH=\"$AM_APK_PATH:$(cat ").append(quote(apkPath)).append(")\"\n");
             } else result.append(line.replace("com.termux.termuxam.Am", "com.termux.app.archohall.AmCompat")
                 .replace("com.archoh.compat.TermuxAmLauncher", "com.termux.app.archohall.AmCompat")).append('\n');
+        }
+        return result.toString();
+    }
+    static String rewriteLaunch(String source,String pointer) {
+        StringBuilder result=new StringBuilder();
+        for(String line:source.split("\n")) {
+            if(line.contains("com.termux.x11.CmdEntryPoint")) {
+                int from=line.indexOf("CLASSPATH="),end=line.indexOf(" /system/bin/app_process",Math.max(from,0));
+                if(from>=0&&end>from)line=line.substring(0,from)+"CLASSPATH=\"$(cat "+quote(pointer)+")\""+line.substring(end);
+            }
+            result.append(line).append('\n');
         }
         return result.toString();
     }

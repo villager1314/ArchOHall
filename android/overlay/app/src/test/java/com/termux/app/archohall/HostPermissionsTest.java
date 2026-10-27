@@ -12,11 +12,15 @@ import android.provider.Settings;
 import com.termux.app.HostPermissions;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk=34,application=Application.class)
+@Config(sdk=34,application=Application.class,shadows=HostPermissionsTest.StorageEnvironment.class)
 public class HostPermissionsTest {
+    @org.robolectric.annotation.Implements(android.os.Environment.class)
+    public static class StorageEnvironment extends ShadowEnvironment {
+        @org.robolectric.annotation.Implementation(minSdk=30)
+        protected static boolean isExternalStorageManager() {return false;}
+    }
     @Test public void storageOpensSettingsForThisPackage() {
         Shadows.shadowOf(RuntimeEnvironment.getApplication()).denyPermissions(Manifest.permission.WRITE_EXTERNAL_STORAGE);
-        ShadowEnvironment.setIsExternalStorageManager(false);
         try(var controller=Robolectric.buildActivity(Activity.class).setup()) {
             Activity a=controller.get();HostPermissions.requestStorage(a);
             Intent i=Shadows.shadowOf(a).getNextStartedActivity();
