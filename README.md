@@ -5,10 +5,10 @@
 
 ## 当前阶段
 
-已提供 **Android 0.02 实验版 APK**，支持 SAF 本地导入、离线运行环境、解包进度与日志。
-[安装与使用说明](android/README.md) · [0.02 APK 构建产物](https://github.com/villager1314/ArchOHall/actions/runs/40447467838)
+已提供 **Android 0.03 实验版 APK**，支持 SAF 本地导入、离线运行环境、解包进度与日志。
+[安装与使用说明](android/README.md) · [0.03 APK 构建产物](https://github.com/villager1314/ArchOHall/actions/runs/40449680313)
 
-0.02 修复后台 app_process 无法加载 APK 内被压缩的 libXlorie.so：显式禁用原生库提取，库以未压缩、16 KiB 对齐方式打包。CI 检查实际 APK ZIP 条目及全部 X11 JNI 声明，保留此前的接口与导入修复。后续版本按 0.01、0.02、0.03 递增。尚需手机实测；CI 构建通过不代表桌面已经在手机上验证。
+0.03 默认使用清华 TUNA 的 Termux 主仓库和 X11 仓库，已有环境会离线迁移一次并备份旧配置，之后保留用户手动换源。Actions 已验证固定签名分发。\n\n0.02 修复后台 app_process 无法加载 APK 内被压缩的 libXlorie.so：显式禁用原生库提取，库以未压缩、16 KiB 对齐方式打包。CI 检查实际 APK ZIP 条目及全部 X11 JNI 声明，保留此前的接口与导入修复。后续版本按 0.01、0.02、0.03 递增。尚需手机实测；CI 构建通过不代表桌面已经在手机上验证。
 内部为 KWin Wayland + Plasma Mobile，外部通过 KWin 嵌套 X11 后端输出到 Termux:X11。
 默认使用 llvmpipe 软件渲染；骁龙 8 Elite GPU 加速后续单独验证。
 当前启动的是最小 mobile shell，不是完整的 systemd/SDDM 登录会话；部分设置和后台服务可能不可用。
