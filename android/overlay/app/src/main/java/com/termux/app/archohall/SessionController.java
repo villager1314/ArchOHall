@@ -54,10 +54,11 @@ public final class SessionController {
         String script="#!/"+prefix.substring(1)+"/bin/bash\nset -eu\nPID_FILE="+quote(new File(dir,"session.pid").getAbsolutePath())+"\nif [[ -f $PID_FILE ]]; then pid=$(cat \"$PID_FILE\"); if [[ $pid =~ ^[1-9][0-9]*$ ]] && tr '\\0' ' ' < \"/proc/$pid/cmdline\" | grep -Fq -- "+quote(new File(dir,"launch.sh").getAbsolutePath())+"; then kill -TERM -- \"-$pid\" 2>/dev/null || kill -TERM \"$pid\"; fi; fi\n";
         File stop=new File(dir,"stop.sh");Files.write(stop.toPath(),script.getBytes(StandardCharsets.UTF_8));execute(c,stop.getAbsolutePath(),"停止 ArchOHall");
     }
-    private static void execute(Context c,String script,String label){
+    static Intent executionIntent(Context c,String script,String label){
         Intent i=new Intent(c,TermuxService.class).setAction("com.archoh.service_execute");
         i.setData(Uri.fromFile(new File(OfflineRuntime.prefix(c),"bin/bash")));
         i.putExtra("com.archoh.execute.arguments",new String[]{"--noprofile","--norc",script});i.putExtra("com.archoh.execute.cwd",new File(c.getFilesDir(),"home").getAbsolutePath());
-        i.putExtra("com.archoh.execute.background",false);i.putExtra("com.archoh.execute.session_action","0");i.putExtra("com.archoh.execute.command_label",label);c.startService(i);
+        i.putExtra("com.archoh.execute.background",true);i.putExtra("com.archoh.execute.session_action","2");i.putExtra("com.archoh.execute.command_label",label);return i;
     }
+    private static void execute(Context c,String script,String label){c.startService(executionIntent(c,script,label));}
 }
