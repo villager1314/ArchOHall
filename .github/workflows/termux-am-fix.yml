@@ -1,0 +1,35 @@
+name: Build TermuxAm caller identity helper
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['diagnostics/TermuxAmLauncher.java', 'diagnostics/test-termux-am-launcher.sh', '.github/workflows/termux-am-fix.yml']
+permissions:
+  contents: read
+jobs:
+  helper:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Verify caller identity and create Android DEX helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash diagnostics/test-termux-am-launcher.sh
+          mkdir -p dist/am-fix build/am-fix
+          javac --release 8 -d build/am-fix diagnostics/TermuxAmLauncher.java
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          d8=$(rg --files "$sdk_root/build-tools" | sort -V | sed -n '\|/d8$|p' | tail -n 1)
+          test -x "$d8"
+          "$d8" --min-api 26 --output dist/am-fix/archohall-am.zip build/am-fix/com/archoh/compat/TermuxAmLauncher.class
+          unzip -l dist/am-fix/archohall-am.zip
+          cp diagnostics/TermuxAmLauncher.java dist/am-fix/
+          (cd dist/am-fix && sha256sum *.zip > SHA256SUMS)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: archohall-termux-am-fix
+          path: dist/am-fix/*
+          if-no-files-found: error
