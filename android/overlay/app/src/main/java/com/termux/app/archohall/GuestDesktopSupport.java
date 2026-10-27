@@ -47,7 +47,9 @@ public final class GuestDesktopSupport {
     private static void run(Context c,OfflineRuntime.Monitor monitor,String script)throws Exception{
         String prefix=OfflineRuntime.prefix(c).getAbsolutePath();
         String root=new File(c.getFilesDir(),"containers/archohall").getAbsolutePath();
-        List<String> args=Arrays.asList(prefix+"/bin/proot","--link2symlink","-0","-r",root,"-b","/dev","-b","/proc","-b",prefix+"/tmp:/tmp","-w","/root","/usr/bin/env","-i","HOME=/root","PATH=/usr/local/bin:/usr/bin:/bin","LANG=zh_CN.UTF-8","/bin/bash",script);
+        // Execute each managed file through its own shebang: configure is Python,
+        // while package and tile installers are Bash.
+        List<String> args=Arrays.asList(prefix+"/bin/proot","--link2symlink","-0","-r",root,"-b","/dev","-b","/proc","-b",prefix+"/tmp:/tmp","-w","/root","/usr/bin/env","-i","HOME=/root","PATH=/usr/local/bin:/usr/bin:/bin","LANG=zh_CN.UTF-8",script);
         ProcessBuilder builder=new ProcessBuilder(args).redirectErrorStream(true);
         builder.environment().clear();builder.environment().putAll(OfflineRuntime.environment(c));builder.environment().remove("LD_PRELOAD");
         Process child=builder.start();monitor.process(child);
