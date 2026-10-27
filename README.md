@@ -5,15 +5,15 @@
 
 ## 当前阶段
 
-已提供 **Android 0.01.1 实验版 APK**，支持 SAF 本地导入、离线运行环境、解包进度与日志。
-[安装与使用说明](android/README.md) · [0.01.1 APK 构建产物](https://github.com/villager1314/ArchOHall/actions/runs/40440499510)
+已提供 **Android 0.01.2 实验版 APK**，支持 SAF 本地导入、离线运行环境、解包进度与日志。
+[安装与使用说明](android/README.md) · [0.01.2 APK 构建产物](https://github.com/villager1314/ArchOHall/actions/runs/40444824092)
 
-0.01.1 修复 systemd 单元名中 `\x2d` 被误判为非法路径的导入问题。尚需手机实测；CI 构建通过不代表桌面已经在手机上验证。
+0.01.2 修复 X11 Java 与原生库版本不匹配导致加载时 SIGABRT；保留 0.01.1 的 systemd 单元名导入修复。CI 对照官方 APK 检查全部 X11 native 声明，另有导入器与界面自动化测试。尚需手机实测；CI 构建通过不代表桌面已经在手机上验证。
 内部为 KWin Wayland + Plasma Mobile，外部通过 KWin 嵌套 X11 后端输出到 Termux:X11。
 默认使用 llvmpipe 软件渲染；骁龙 8 Elite GPU 加速后续单独验证。
 当前启动的是最小 mobile shell，不是完整的 systemd/SDDM 登录会话；部分设置和后台服务可能不可用。
 
-## 构建和下载
+Actions 产物使用临时调试签名；固定签名分发包与其不同，后续更新应保持同一签名。\n\n## 构建和下载
 
 修改构建相关文件会触发测试构建；也可以在 Actions → Build ArchOHall rootfs → Run workflow 手动运行。
 构建使用 `ubuntu-24.04-arm` 原生 ARM64 runner，在临时 chroot 中安装软件，再导出普通根目录 tar.xz。
