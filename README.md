@@ -1,11 +1,14 @@
 # ArchOHall
 
 面向免 root Android 的 **Arch Linux ARM + Plasma Mobile** 预装 rootfs 实验。
-宿主使用 **PRoot / proot-distro + Termux:X11**；后续计划开发 Material 3 Expressive 安卓管理界面。
+提供 **Material 3 安卓管理界面**，集成 Termux、PRoot 和 Termux:X11；也可在原版 Termux 中手动导入。
 
 ## 当前阶段
 
-这是镜像构建与实机验证阶段，尚未提供独立 APK。CI 构建通过不代表桌面已经在手机上验证。
+已提供 **Android 0.01 实验版 APK**，支持 SAF 本地导入、离线运行环境、解包进度与日志。
+[安装与使用说明](android/README.md) · [0.01 APK 构建产物](https://github.com/villager1314/ArchOHall/actions/runs/40438293639/artifacts/12705156262)
+
+ARM64 APK 构建和 11 项自动化测试已通过，尚需手机实测；CI 构建通过不代表桌面已经在手机上验证。
 内部为 KWin Wayland + Plasma Mobile，外部通过 KWin 嵌套 X11 后端输出到 Termux:X11。
 默认使用 llvmpipe 软件渲染；骁龙 8 Elite GPU 加速后续单独验证。
 当前启动的是最小 mobile shell，不是完整的 systemd/SDDM 登录会话；部分设置和后台服务可能不可用。
@@ -30,6 +33,8 @@
 基础镜像来自 Arch Linux ARM 官方 HTTPS 下载地址。构建必须验证其签名以及固定的完整签名密钥指纹；验证失败即停止。pacman 保留软件包签名验证。
 
 ## 手机导入
+
+使用独立 APK 时，点击“选择本地导入包”，可直接选择此前 Actions ZIP 或 `tar.xz`，无需以下宿主安装步骤。APK 内置运行环境，不依赖现有 Termux。以下为原版 Termux 的手动方案。
 
 需要 ARM64 安卓、Termux、另行安装的官方 Termux:X11 APK，以及支持本地 tar 导入的新版 proot-distro（5.x 及以上）。旧版本先查看 `proot-distro install --help`，不要把该 tar 当成专用 backup/restore 归档。
 建议先预留 12 GiB 空间用于压缩包、解压和后续更新；以实际构建包大小为准。
@@ -83,6 +88,8 @@ bash ./start-termux.sh 2>&1 | tee archohall-start.log
 
 ## 目录
 
+- `android/`：Material 3 管理应用、离线运行包构建与测试。
+- `.github/workflows/android.yml`：Android APK 构建与验证。
 - `packages.txt`：显式安装的软件包。
 - `scripts/build-rootfs.sh`、`scripts/provision.sh`：构建与容器内配置。
 - `rootfs/`：镜像覆盖文件和最小桌面会话。
@@ -93,4 +100,5 @@ bash ./start-termux.sh 2>&1 | tee archohall-start.log
 
 ArchOHall 与 Arch Linux ARM、KDE、Termux 无官方关联。
 镜像包含的软件分别适用各自许可证，保留 `/usr/share/licenses`；分发者应履行相应源码提供等义务。
-本仓库新增脚本和配置使用 MIT 许可证，见 LICENSE；此许可证不覆盖镜像内的上游软件。
+原有独立 rootfs 脚本和配置使用 MIT 许可证，见 LICENSE；Android 集成衍生部分为 GPL-3.0-or-later，见 [android/LICENSE.md](android/LICENSE.md)。这些许可证不覆盖镜像内各上游软件。
+
