@@ -16,8 +16,8 @@ import java.nio.file.LinkOption;
 public final class HostPermissions {
     public static final int STORAGE = 4401;
     public static boolean storageGranted(Context c) {
-        return (Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager()) ||
-            c.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
+        if (Build.VERSION.SDK_INT >= 30) return Environment.isExternalStorageManager();
+        return c.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
     }
     public static void requestStorage(Activity a) {
         if (storageGranted(a)) { setupLinks(a); return; }

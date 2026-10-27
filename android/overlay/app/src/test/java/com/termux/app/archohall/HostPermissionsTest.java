@@ -36,4 +36,8 @@ public class HostPermissionsTest {
             assertEquals(a.getPackageName(),i.getStringExtra(Settings.EXTRA_APP_PACKAGE));
         }
     }
+    @Test public void legacyWriteGrantDoesNotHideAllFilesAuthorizationOnModernAndroid() {
+        Shadows.shadowOf(RuntimeEnvironment.getApplication()).grantPermissions(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        assertFalse(HostPermissions.storageGranted(RuntimeEnvironment.getApplication()));
+    }
 }
