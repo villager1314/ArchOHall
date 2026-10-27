@@ -264,7 +264,7 @@ exec /system/bin/app_process /system/bin --nice-name=archohall-relocate com.term
     x11_jni = PROJECT/'lorie/src/main/jniLibs/arm64-v8a'
     x11_jni.mkdir(parents=True, exist_ok=True)
     (x11_jni/'libXlorie.so').write_bytes(native)
-    manifest = {'applicationId': 'com.archoh', 'version':'0.01', 'bootstrapBytes':output.stat().st_size, 'expandedBytes':sum(len(b) for b,m in files.values()), 'bootstrapSha256':hashlib.sha256(output.read_bytes()).hexdigest(), 'packages':{name:packages[name]['Version'] for name in sorted(wanted)}, 'sources':LOCK, 'termuxApkSha256':expected}
+    manifest = {'applicationId': 'com.archoh', 'version':LOCK['version_name'], 'bootstrapBytes':output.stat().st_size, 'expandedBytes':sum(len(b) for b,m in files.values()), 'bootstrapSha256':hashlib.sha256(output.read_bytes()).hexdigest(), 'packages':{name:packages[name]['Version'] for name in sorted(wanted)}, 'sources':LOCK, 'termuxApkSha256':expected}
     (assets/'runtime-manifest.json').write_text(json.dumps(manifest, indent=2))
     print('Offline runtime:', len(wanted), 'packages,', output.stat().st_size, 'bytes')
 

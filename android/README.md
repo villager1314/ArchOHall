@@ -1,12 +1,14 @@
-# ArchOHall Android 0.01.1
+# ArchOHall Android 0.01.2
 
 实验性 ARM64 安卓应用，包名 `com.archoh`，可以与现有 Termux、Termux:X11 和 `com.phoshx` 并装。
+
+0.01.2 将 X11 Java 源码固定到官方 APK release 正文的实际构建提交，而非陈旧的 target_commitish；修复 JNI 注册缺少 nativeSetLaunchWindowingModeFreeform 导致的 SIGABRT。CI 对照官方 APK 与集成 APK 的全部 X11 native 声明及签名，发现不一致即停止。
 
 0.01.1 修复 Linux 文件名中反斜杠被错误拒绝的问题（例如 systemd 的 `\x2d` 单元名）。原 rootfs 导入包可以继续使用。
 
 ## 使用
 
-1. 从本仓库 Actions 的 **Build ArchOHall Android 0.01.1** 下载 APK 构建产物并安装。
+1. 从本仓库 Actions 的 **Build ArchOHall Android 0.01.2** 下载 APK 构建产物并安装。
 2. 首次启动会从 APK 展开内置运行包并配置软件，整个过程不执行 `pkg install` 或联网下载。
 3. 点击“选择本地导入包”，通过安卓 SAF 选择 ArchOHall 的 `tar.xz`，或此前 rootfs Actions 生成的 ZIP。
 4. 观察分阶段进度与日志；导入完成后点击“启动 Plasma Mobile”。
