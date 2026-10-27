@@ -1,0 +1,62 @@
+name: Build ArchOHall Android 0.01
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/android.yml']
+permissions:
+  contents: read
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Use JDK 17
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME_17_X64/bin" >> "$GITHUB_PATH"
+      - name: Prepare Android SDK and package tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends curl gnupg zstd
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Compose pinned sources
+        run: python3 android/prepare_project.py
+      - name: Build offline runtime
+        run: python3 android/build_runtime.py
+      - name: Test importer and build APK
+        working-directory: .android-build/project
+        run: |
+          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties
+          ./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace
+      - name: Inspect APK and collect output
+        run: |
+          mkdir -p dist/android
+          cp .android-build/project/app/build/outputs/apk/debug/app-debug.apk dist/android/ArchOHall-0.01-arm64.apk
+          cp .android-build/project/app/src/main/assets/runtime-manifest.json dist/android/
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/android/ArchOHall-0.01-arm64.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging dist/android/ArchOHall-0.01-arm64.apk
+          (cd dist/android && sha256sum *.apk > SHA256SUMS)
+      - name: Upload APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ArchOHall-0.01-arm64
+          path: dist/android/*
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: android-build-diagnostics
+          path: |
+            .android-build/project/app/build/reports/tests/
+            .android-build/project/app/build/test-results/
+          if-no-files-found: ignore

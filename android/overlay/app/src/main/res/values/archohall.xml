@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ArchOHall" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">#4961AC</item>
+        <item name="colorSecondary">#595D72</item>
+        <item name="colorTertiary">#765574</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:statusBarColor">?attr/colorSurface</item>
+        <item name="android:navigationBarColor">?attr/colorSurface</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>

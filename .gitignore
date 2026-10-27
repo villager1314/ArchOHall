@@ -1,2 +1,5 @@
 /.build/
 /dist/
+/.android-build/
+/android/local.properties
+__pycache__/
