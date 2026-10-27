@@ -22,7 +22,7 @@ jobs:
           mkdir -p dist/am-fix build/am-fix
           javac --release 8 -d build/am-fix diagnostics/TermuxAmLauncher.java
           sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
-          d8=$(rg --files "$sdk_root/build-tools" | sort -V | sed -n '\|/d8$|p' | tail -n 1)
+          d8=$(find "$sdk_root/build-tools" -maxdepth 2 -type f -name d8 | sort -V | tail -n 1)
           test -x "$d8"
           "$d8" --min-api 26 --output dist/am-fix/archohall-am.zip build/am-fix/com/archoh/compat/TermuxAmLauncher.class
           unzip -l dist/am-fix/archohall-am.zip
