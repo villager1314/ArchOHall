@@ -35,5 +35,6 @@ install -Dm755 /opt/compat-build/archohall-kwin-compat /usr/local/bin/archohall-
 pacman -Q > /opt/archohall-kwin-compat/build-packages.txt
 printf '%s\n' "$source_commit" > /opt/archohall-kwin-compat/upstream-commit.txt
 cp /build/kwin/COPYING* /opt/archohall-kwin-compat/ 2>/dev/null || true
+cp -a /build/kwin/LICENSES /opt/archohall-kwin-compat/
 cp /opt/compat-build/patch-kwin.py /opt/archohall-kwin-compat/
 bash /opt/compat-build/test-in-arch.sh

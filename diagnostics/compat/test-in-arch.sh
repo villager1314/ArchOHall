@@ -31,7 +31,7 @@ runuser -u "$ci_user" -- env DISPLAY=:77 XDG_RUNTIME_DIR=/tmp/compat-ci \
     QT_QPA_PLATFORM=xcb dbus-run-session -- \
     env LD_PRELOAD=/tmp/no-udev.so /usr/local/bin/archohall-kwin-compat \
     --x11-display :77 --width 720 --height 1280 --socket archohall-compat-ci \
-    --no-lockscreen > /compat-results/kwin.log 2>&1 &
+    > /compat-results/kwin.log 2>&1 &
 kpid=$!
 ready=0
 for ((i=0;i<60;i++)); do
