@@ -16,11 +16,14 @@ jobs:
           persist-credentials: false
       - name: Build ARM64 glibc helper
         run: |
+          bash diagnostics/test-udev-guard.sh
           mkdir -p dist/crashtrace
           gcc -std=c11 -Wall -Wextra -Werror -O1 -g -fPIC -shared -Wl,-z,relro,-z,now -o dist/crashtrace/libarchohall-crashtrace.so diagnostics/kwin-crashtrace.c
+          gcc -std=c11 -Wall -Wextra -Werror -O2 -g -fPIC -shared -Wl,-z,relro,-z,now -o dist/crashtrace/libarchohall-udev-guard.so diagnostics/kwin-udev-guard.c -ldl
           file dist/crashtrace/libarchohall-crashtrace.so
           readelf -h dist/crashtrace/libarchohall-crashtrace.so
           cp diagnostics/kwin-crashtrace.c dist/crashtrace/
+          cp diagnostics/kwin-udev-guard.c dist/crashtrace/
           (cd dist/crashtrace && sha256sum *.so > SHA256SUMS)
       - name: Upload diagnostic helper
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
