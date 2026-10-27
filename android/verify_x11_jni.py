@@ -76,11 +76,33 @@ def apk_declarations(path):
     return found
 
 
+def verify_native_zip(path):
+    # Unlike Activity System.loadLibrary, app_process loads the APK entry directly.
+    # An installed/extracted copy cannot compensate for a compressed APK entry.
+    count = 0
+    with zipfile.ZipFile(path) as apk, open(path, 'rb') as raw:
+        for item in apk.infolist():
+            if not item.filename.startswith('lib/arm64-v8a/') or not item.filename.endswith('.so'):
+                continue
+            if item.compress_type != zipfile.ZIP_STORED:
+                raise SystemExit(f'Native APK entry must be uncompressed for app_process dlopen: {item.filename}')
+            raw.seek(item.header_offset + 26)
+            name_length, extra_length = struct.unpack('<HH', raw.read(4))
+            offset = item.header_offset + 30 + name_length + extra_length
+            if offset % 16384:
+                raise SystemExit(f'Native APK entry is not 16 KiB aligned: {item.filename} at {offset}')
+            count += 1
+    if not count:
+        raise SystemExit('No ARM64 native APK entries found')
+    print(f'Validated {count} uncompressed, 16 KiB aligned ARM64 native APK entries.')
+
+
 def main():
     expected, actual = map(apk_declarations, sys.argv[1:])
     if expected != actual:
         raise SystemExit('X11 JNI mismatch!\nMissing: ' + repr(sorted(expected-actual)) + '\nUnexpected: ' + repr(sorted(actual-expected)))
     print(f'Validated {len(expected)} X11 native method names, descriptors and static flags against the official APK.')
+    verify_native_zip(sys.argv[2])
 
 
 if __name__ == '__main__':

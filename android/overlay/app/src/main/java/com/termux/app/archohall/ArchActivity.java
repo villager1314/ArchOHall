@@ -37,7 +37,7 @@ public final class ArchActivity extends AppCompatActivity {
         MaterialToolbar toolbar=new MaterialToolbar(this);toolbar.setTitle("ArchOHall");toolbar.setSubtitle("你的掌上 Linux 工作空间");page.addView(toolbar,new LinearLayout.LayoutParams(-1,dp(80)));
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);page.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout content=new LinearLayout(this);content.setOrientation(1);content.setPadding(dp(20),dp(8),dp(20),dp(28));scroll.addView(content);
-        LinearLayout badges=new LinearLayout(this);Chip version=new Chip(this);version.setText("0.01.2 · ARM64");version.setCheckable(false);badges.addView(version);Chip offline=new Chip(this);offline.setText("离线导入");offline.setCheckable(false);badges.addView(offline);content.addView(badges);
+        LinearLayout badges=new LinearLayout(this);Chip version=new Chip(this);version.setText("0.02 · ARM64");version.setCheckable(false);badges.addView(version);Chip offline=new Chip(this);offline.setText("离线导入");offline.setCheckable(false);badges.addView(offline);content.addView(badges);
         LinearLayout overview=card(content);text(overview,"Arch + Plasma Mobile",26);text(overview,"选择已经下载的 ArchOHall 导入包，展开后即可尝试启动桌面。",15);
         status=text(overview,"正在检查运行环境",14);
         LinearLayout controls=card(content);text(controls,"容器",20);

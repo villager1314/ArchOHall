@@ -85,8 +85,8 @@ android {
   applicationId 'com.archoh'
   minSdk 26
   targetSdk 28
-  versionCode 3
-  versionName '0.01.2'
+  versionCode 4
+  versionName '0.02'
   manifestPlaceholders = [TERMUX_PACKAGE_NAME:'com.archoh', TERMUX_APP_NAME:'ArchOHall', TERMUX_API_APP_NAME:'Termux:API', TERMUX_BOOT_APP_NAME:'Termux:Boot', TERMUX_FLOAT_APP_NAME:'Termux:Float', TERMUX_STYLING_APP_NAME:'Termux:Styling', TERMUX_TASKER_APP_NAME:'Termux:Tasker', TERMUX_WIDGET_APP_NAME:'Termux:Widget']
   ndk { abiFilters 'arm64-v8a' }
  }
@@ -200,6 +200,9 @@ dependencies {
                 if any(e.get(attr('name')) == 'android.intent.action.MAIN' for e in intent_filter.findall('action')):
                     component.remove(intent_filter)
         if main_app:
+            # app_process loads libXlorie directly from base.apk. Compressed JNI
+            # entries cannot be dlopen'ed, even though the installed Activity works.
+            application.set(attr('extractNativeLibs'), 'false')
             application.set(attr('name'), 'com.termux.app.archohall.ArchApplication')
             application.set('{' + tools_ns + '}replace', 'android:name')
             application.set(attr('label'), 'ArchOHall')
