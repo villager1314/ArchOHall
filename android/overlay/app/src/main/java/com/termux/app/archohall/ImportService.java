@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.*;
 
 public final class ImportService extends Service implements OfflineRuntime.Monitor {
-    public static final String PREPARE="prepare", IMPORT="import", CANCEL="cancel", COMPAT="compat", FILE="file";
+    public static final String PREPARE="prepare", IMPORT="import", CANCEL="cancel", COMPAT="compat", FILE="file", SUPPORT="desktop-support";
     private static final int NOTICE=4101;
     private final AtomicBoolean cancelled=new AtomicBoolean();
     private volatile Process child;
@@ -65,10 +65,11 @@ public final class ImportService extends Service implements OfflineRuntime.Monit
         File work=new File(getFilesDir(),"import-work");
         try{
             log=new BufferedWriter(new OutputStreamWriter(new FileOutputStream(new File(getFilesDir(),"import.log"),true),StandardCharsets.UTF_8));
-            log("──── ArchOHall 0.04 ────");
+            log("──── ArchOHall 0.05 ────");
             if(SessionController.running(this))throw new IOException("请先停止桌面，再导入容器");
             OfflineRuntime.ensure(this,this);state.runtimeReady=true;
-            if(COMPAT.equals(action)) {GuestCompatibility.install(this,this);state.phase="兼容组件已安装";state.detail="可以启动 Plasma Mobile；原脚本已保留为备份";}
+            if(SUPPORT.equals(action)) {GuestDesktopSupport.install(this,this);state.phase="桌面桥接与组件已安装";state.detail="可启动桌面验证键盘、音频、电量和快捷控制";}
+            else if(COMPAT.equals(action)) {GuestCompatibility.install(this,this);state.phase="兼容组件已安装";state.detail="可以启动 Plasma Mobile；原脚本已保留为备份";}
             else if(FILE.equals(action)) {SafeTar.deleteTree(work);work.mkdirs();importTerminalFile(source,work);state.phase="终端文件已导入";}
             else {if(source!=null){SafeTar.deleteTree(work);work.mkdirs();importRootfs(source,work);}state.phase=source==null?"离线环境已就绪":"导入完成";state.detail=source==null?"请选择本地 ArchOHall 导入包":"可以启动 Plasma Mobile";}
             state.progress=1000;log(state.phase);

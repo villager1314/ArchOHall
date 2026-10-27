@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 public class ArchApplication extends TermuxApplication {
     @Override public void onCreate(){
         super.onCreate();
+        try{AndroidHostBridge.start(this);}catch(IOException e){android.util.Log.e("ArchOHall","Android bridge could not start",e);}
         DynamicColors.applyToActivitiesIfAvailable(this);
         try(FileOutputStream out=new FileOutputStream(new File(getFilesDir(),"apk-path"))){out.write((getApplicationInfo().sourceDir+"\n").getBytes(StandardCharsets.UTF_8));}
         catch(IOException e){android.util.Log.e("ArchOHall","Cannot record APK path",e);}

@@ -14,6 +14,15 @@ export XDG_CURRENT_DESKTOP=KDE
 export XDG_SESSION_DESKTOP=KDE
 export XKB_CONFIG_ROOT=/usr/share/X11/xkb
 export PULSE_SERVER="${PULSE_SERVER:-tcp:127.0.0.1}"
+export KWIN_IM_SHOW_ALWAYS=1
+export KWIN_DEVICE_SKIPS_INPUT_METHOD=_none_
+# X11 nesting reports mouse input even when Android was touched.
+if [[ -x /usr/bin/plasma-keyboard || -x /usr/bin/maliit-keyboard ]] && command -v kwriteconfig6 >/dev/null; then
+    input_method=$(kreadconfig6 --file kwinrc --group Wayland --key InputMethod 2>/dev/null || true)
+    if [[ -z $input_method ]]; then
+        kwriteconfig6 --file kwinrc --group Wayland --key InputMethod /usr/local/share/applications/org.archohall.keyboard.desktop
+    fi
+fi
 unset WAYLAND_DISPLAY WAYLAND_SOCKET DBUS_SESSION_BUS_ADDRESS SESSION_MANAGER
 case "${ARCHOHALL_RENDERER:-software}" in
     software)
@@ -30,8 +39,14 @@ xdpyinfo -display "$DISPLAY" >/dev/null || {
     echo 'Cannot reach Termux:X11. Start the host server and use --shared-tmp.' >&2
     exit 1
 }
-exec dbus-run-session -- kwin_wayland \
+kwin_cmd=kwin_wayland
+extra=(--xwayland)
+if [[ -x /opt/archohall-kwin-compat/bin/kwin_wayland ]]; then
+    kwin_cmd=/usr/local/bin/archohall-kwin-compat
+    extra=()
+fi
+exec dbus-run-session -- "$kwin_cmd" \
     --x11-display "$DISPLAY" \
     --width "${ARCHOHALL_WIDTH:-720}" --height "${ARCHOHALL_HEIGHT:-1280}" \
-    --socket wayland-archohall --xwayland \
+    --socket wayland-archohall "${extra[@]}" \
     --exit-with-session /usr/local/bin/archohall-session

@@ -28,7 +28,8 @@ usermod -aG wheel arch
 # No default passwords, SSH daemon, or passwordless sudo in the image.
 passwd -l root
 passwd -l arch
-chmod 755 /usr/local/bin/archohall-mobile /usr/local/bin/archohall-session /usr/local/bin/archohall-init
+chmod 755 /usr/local/bin/archohall-*
+# Host-backed tiles require the Android app and are applied on its repair action.
 rm -f /etc/machine-id
 dbus-uuidgen --ensure=/etc/machine-id
 kwin_wayland --help > /tmp/archohall-kwin-help.txt

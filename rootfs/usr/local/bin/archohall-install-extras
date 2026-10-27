@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Use the image's synchronized repositories. Never perform a blind partial Qt/KDE upgrade.
+set -euo pipefail
+[[ $(id -u) == 0 ]] || { echo 'Run inside the container as simulated root.' >&2; exit 1; }
+packages=(plasma-keyboard plasma-pa python-dbus-fast ffmpeg libnotify)
+plan=$(mktemp)
+trap 'rm -f "$plan"' EXIT
+pacman -Sp --needed --print-format '%n %v' "${packages[@]}" > "$plan"
+if awk '$1 ~ /^(qt6-|kf6-|kwin$|libplasma$|plasma-workspace$|plasma-mobile$)/ { bad=1; print "需要更改兼容桌面依赖：" $0 > "/dev/stderr" } END {exit !bad}' "$plan"; then
+    echo '已中止安装：需要重新匹配兼容 KWin 与 Qt/KDE 版本，不会自动升级这些库。' >&2
+    exit 1
+fi
+pacman -S --needed --noconfirm "${packages[@]}"
+for binary in /usr/bin/plasma-keyboard /usr/bin/ffmpeg; do
+    if ldd "$binary" | grep -q 'not found'; then ldd "$binary"; exit 1; fi
+done
+python3 -c 'import dbus_fast'
+echo '虚拟键盘、音量组件、UPower 桥接依赖、截图和录屏工具已安装'

@@ -1,9 +1,9 @@
-name: Build ArchOHall Android 0.04
+name: Build ArchOHall Android 0.05
 on:
   workflow_dispatch:
   push:
-    branches: [main]
-    paths: ['android/**', '.github/workflows/android.yml']
+    branches: [main, fix/android-desktop-bridge]
+    paths: ['android/**', 'rootfs/usr/local/**', 'tests/**', 'packages.txt', '.github/workflows/android.yml']
 permissions:
   contents: read
   actions: read
@@ -31,6 +31,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends curl gnupg zstd unzip
           bash android/install_sdk.sh
+      - name: Test desktop bridge
+        run: |
+          python3 -m pip install dbus-fast==5.2.0
+          python3 -m unittest discover -s tests -v
       - name: Compose pinned sources
         run: python3 android/prepare_project.py
       - name: Fetch verified desktop compatibility component
@@ -54,19 +58,19 @@ jobs:
       - name: Sign with retained ArchOHall key
         env:
           ARCHOHALL_SIGNING_BUNDLE: ${{ secrets.ARCHOHALL_SIGNING_BUNDLE }}
-        run: python3 android/sign_apk.py .android-build/project/app/build/outputs/apk/debug/app-debug.apk dist/android/ArchOHall-0.04-arm64.apk
+        run: python3 android/sign_apk.py .android-build/project/app/build/outputs/apk/debug/app-debug.apk dist/android/ArchOHall-0.05-arm64.apk
       - name: Inspect APK and collect output
         run: |
           mkdir -p dist/android
-          python3 android/verify_x11_jni.py .android-build/downloads/x11.apk dist/android/ArchOHall-0.04-arm64.apk
+          python3 android/verify_x11_jni.py .android-build/downloads/x11.apk dist/android/ArchOHall-0.05-arm64.apk
           cp .android-build/project/app/src/main/assets/runtime-manifest.json dist/android/
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/android/ArchOHall-0.04-arm64.apk
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging dist/android/ArchOHall-0.04-arm64.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/android/ArchOHall-0.05-arm64.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging dist/android/ArchOHall-0.05-arm64.apk
           (cd dist/android && sha256sum *.apk > SHA256SUMS)
       - name: Upload APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: ArchOHall-0.04-arm64
+          name: ArchOHall-0.05-arm64
           path: dist/android/*
           compression-level: 0
           if-no-files-found: error

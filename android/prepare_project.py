@@ -85,8 +85,8 @@ android {
   applicationId 'com.archoh'
   minSdk 26
   targetSdk 28
-  versionCode 6
-  versionName '0.04'
+  versionCode 7
+  versionName '0.05'
   manifestPlaceholders = [TERMUX_PACKAGE_NAME:'com.archoh', TERMUX_APP_NAME:'ArchOHall', TERMUX_API_APP_NAME:'Termux:API', TERMUX_BOOT_APP_NAME:'Termux:Boot', TERMUX_FLOAT_APP_NAME:'Termux:Float', TERMUX_STYLING_APP_NAME:'Termux:Styling', TERMUX_TASKER_APP_NAME:'Termux:Tasker', TERMUX_WIDGET_APP_NAME:'Termux:Widget']
   ndk { abiFilters 'arm64-v8a' }
  }
@@ -225,6 +225,11 @@ dependencies {
             ET.SubElement(intent_filter, 'category', {attr('name'):'android.intent.category.LAUNCHER'})
             ET.SubElement(application, 'service', {attr('name'):'com.termux.app.archohall.ImportService', attr('exported'):'false'})
             ET.SubElement(root, 'uses-permission', {attr('name'):'android.permission.POST_NOTIFICATIONS'})
+            ET.SubElement(application, 'activity', {attr('name'):'com.termux.app.archohall.HostControlActivity', attr('exported'):'false', attr('theme'):'@android:style/Theme.Material.Light.Dialog.Alert', attr('label'):'ArchOHall Android 控制'})
+            for permission in ('ACCESS_NETWORK_STATE', 'ACCESS_WIFI_STATE', 'BLUETOOTH', 'ACCESS_NOTIFICATION_POLICY', 'MODIFY_AUDIO_SETTINGS'):
+                name = 'android.permission.' + permission
+                if not any(e.get(attr('name')) == name for e in root.findall('uses-permission')):
+                    ET.SubElement(root, 'uses-permission', {attr('name'):name})
             application.set(attr('requestLegacyExternalStorage'), 'true')
             ET.SubElement(root, 'uses-permission', {attr('name'):'android.permission.READ_EXTERNAL_STORAGE'})
         else:

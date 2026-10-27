@@ -3,6 +3,49 @@ set -euo pipefail
 export QT_QPA_PLATFORM=wayland
 export XDG_CURRENT_DESKTOP=KDE
 export XDG_SESSION_DESKTOP=KDE
+export XDG_MENU_PREFIX=plasma-
 export KDE_FULL_SESSION=true
-# Minimal mobile shell, intentionally independent of systemd user services.
-exec plasmashell -p org.kde.plasma.mobileshell
+# QPainter is only for KWin. Qt Quick needs shaders for app icons and masks.
+unset QT_QUICK_BACKEND
+export QSG_RHI_BACKEND=opengl LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe
+export QML_XHR_ALLOW_FILE_READ=1
+
+# The private bus contains only the read-only Android battery facade. It is not
+# Android's system bus and must never be used for host privileged operations.
+bus_pid=''
+battery_pid=''
+shell_pid=''
+cleanup(){
+    trap - EXIT INT TERM
+    for pid in "$shell_pid" "$battery_pid" "$bus_pid"; do
+        [[ -z $pid ]] || kill -TERM "$pid" 2>/dev/null || true
+    done
+    wait 2>/dev/null || true
+    [[ -z ${ARCHOHALL_UPOWER_READY:-} ]] || rm -f "$ARCHOHALL_UPOWER_READY"
+}
+trap cleanup EXIT
+trap 'exit 0' INT TERM
+if [[ -r /run/archohall-host/state.json ]] && python3 -c 'import dbus_fast' 2>/dev/null; then
+    export DBUS_SYSTEM_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/archohall-system-bus-$$"
+    dbus-daemon --session --address="$DBUS_SYSTEM_BUS_ADDRESS" --nofork --nopidfile &
+    bus_pid=$!
+    for ((attempt=0;attempt<30;attempt++)); do
+        [[ -S ${DBUS_SYSTEM_BUS_ADDRESS#unix:path=} ]] && break
+        sleep 0.1
+    done
+    export ARCHOHALL_UPOWER_READY="$XDG_RUNTIME_DIR/archohall-upower-$$.ready"
+    /usr/local/bin/archohall-upower &
+    battery_pid=$!
+    for ((attempt=0;attempt<30;attempt++)); do
+        [[ -f $ARCHOHALL_UPOWER_READY ]] && break
+        kill -0 "$battery_pid" 2>/dev/null || break
+        sleep 0.1
+    done
+fi
+if command -v kscreen-doctor >/dev/null; then
+    kscreen-doctor "output.X11-0.scale.${ARCHOHALL_SCALE:-1.5}" || echo '无法应用输出缩放' >&2
+fi
+# Minimal mobile shell, independent of systemd user services.
+plasmashell -p org.kde.plasma.mobileshell &
+shell_pid=$!
+wait "$shell_pid"

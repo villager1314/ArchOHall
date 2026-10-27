@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+echo '先停止桌面，再恢复由桌面组件修复入口保存的文件。'
+if [[ -x /usr/local/bin/archohall-install-tiles ]]; then
+    /usr/local/bin/archohall-install-tiles --restore
+fi
+while IFS= read -r -d '' backup; do
+    original=${backup%.before-support-005}
+    cp -p "$backup" "$original"
+done < <(find /usr/local -type f -name '*.before-support-005' -print0)
+echo '已恢复备份的脚本和快捷设置；安装的软件包保留。'

@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Only a fixed Android action name crosses this private same-app channel.
+set -euo pipefail
+bridge=${ARCHOHALL_HOST_BRIDGE:-/run/archohall-host}
+case "${1:-}" in
+    wifi|mobiledata|bluetooth|airplane|hotspot|settings|battery|volume|brightness|power|keepawake|nightcolor|dnd|apps) ;;
+    *) echo 'Unknown Android host action' >&2; exit 2 ;;
+esac
+[[ -d "$bridge/requests" ]] || { echo 'Android host bridge is not mounted' >&2; exit 1; }
+request=$(mktemp "$bridge/requests/req-XXXXXXXXXXXX")
+reply="$request.reply"
+trap 'rm -f -- "$request" "$request.request" "$reply"' EXIT
+printf '%s\n' "$1" > "$request"
+mv -- "$request" "$request.request"
+for ((attempt=0;attempt<40;attempt++)); do
+    if [[ -f $reply ]]; then
+        result=$(cat "$reply"); printf '%s\n' "$result"
+        [[ $result == OK ]]; exit
+    fi
+    sleep 0.1
+done
+echo 'Android host did not acknowledge the action' >&2
+exit 1
