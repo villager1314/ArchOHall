@@ -5,10 +5,10 @@
 
 ## 当前阶段
 
-已提供 **Android 0.01 实验版 APK**，支持 SAF 本地导入、离线运行环境、解包进度与日志。
-[安装与使用说明](android/README.md) · [0.01 APK 构建产物](https://github.com/villager1314/ArchOHall/actions/runs/40438293639/artifacts/12705156262)
+已提供 **Android 0.01.1 实验版 APK**，支持 SAF 本地导入、离线运行环境、解包进度与日志。
+[安装与使用说明](android/README.md) · [0.01.1 APK 构建产物](https://github.com/villager1314/ArchOHall/actions/runs/40440499510)
 
-ARM64 APK 构建和 11 项自动化测试已通过，尚需手机实测；CI 构建通过不代表桌面已经在手机上验证。
+0.01.1 修复 systemd 单元名中 `\x2d` 被误判为非法路径的导入问题。尚需手机实测；CI 构建通过不代表桌面已经在手机上验证。
 内部为 KWin Wayland + Plasma Mobile，外部通过 KWin 嵌套 X11 后端输出到 Termux:X11。
 默认使用 llvmpipe 软件渲染；骁龙 8 Elite GPU 加速后续单独验证。
 当前启动的是最小 mobile shell，不是完整的 systemd/SDDM 登录会话；部分设置和后台服务可能不可用。
@@ -101,4 +101,5 @@ bash ./start-termux.sh 2>&1 | tee archohall-start.log
 ArchOHall 与 Arch Linux ARM、KDE、Termux 无官方关联。
 镜像包含的软件分别适用各自许可证，保留 `/usr/share/licenses`；分发者应履行相应源码提供等义务。
 原有独立 rootfs 脚本和配置使用 MIT 许可证，见 LICENSE；Android 集成衍生部分为 GPL-3.0-or-later，见 [android/LICENSE.md](android/LICENSE.md)。这些许可证不覆盖镜像内各上游软件。
+
 
