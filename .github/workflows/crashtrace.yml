@@ -1,0 +1,30 @@
+name: Build guest crash tracing helper
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['diagnostics/*.c', '.github/workflows/crashtrace.yml']
+permissions:
+  contents: read
+jobs:
+  trace:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Build ARM64 glibc helper
+        run: |
+          mkdir -p dist/crashtrace
+          gcc -std=c11 -Wall -Wextra -Werror -O1 -g -fPIC -shared -Wl,-z,relro,-z,now -o dist/crashtrace/libarchohall-crashtrace.so diagnostics/kwin-crashtrace.c
+          file dist/crashtrace/libarchohall-crashtrace.so
+          readelf -h dist/crashtrace/libarchohall-crashtrace.so
+          cp diagnostics/kwin-crashtrace.c dist/crashtrace/
+          (cd dist/crashtrace && sha256sum *.so > SHA256SUMS)
+      - name: Upload diagnostic helper
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: archohall-arm64-crashtrace
+          path: dist/crashtrace/*
+          if-no-files-found: error
