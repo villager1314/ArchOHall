@@ -45,10 +45,13 @@ jobs:
           test -n "$signer"
           "$signer" verify --verbose --print-certs ArchOHall-0.06-arm64.apk > certificate.txt
           cat certificate.txt
-          grep -Fx 'Signer #1 certificate SHA-256 digest: 395043a9142654bea4cf43699c719dd77fd7276b4dc286f4399dfb273732de02' certificate.txt
           python3 - <<'PY'
-          import json, sys, zipfile
+          import json, re, sys, zipfile
           from pathlib import Path
+          certificate = Path('certificate.txt').read_text()
+          digests = set(re.findall(r'^.*certificate SHA-256 digest: ([0-9a-f]{64})$', certificate, re.M))
+          assert digests == {'395043a9142654bea4cf43699c719dd77fd7276b4dc286f4399dfb273732de02'}
+          assert 'Number of signers: 1' in certificate
           sys.path.insert(0, str(Path('..', 'android').resolve()))
           from verify_x11_jni import verify_native_zip
           with zipfile.ZipFile('ArchOHall-0.06-arm64.apk') as z:
