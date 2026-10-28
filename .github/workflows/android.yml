@@ -1,9 +1,6 @@
 name: Build ArchOHall Android 0.06
 on:
   workflow_dispatch:
-  push:
-    branches: [main, fix/android-desktop-bridge]
-    paths: ['android/**', 'rootfs/usr/local/**', 'tests/**', 'packages.txt', '.github/workflows/android.yml']
 permissions:
   contents: read
   actions: read

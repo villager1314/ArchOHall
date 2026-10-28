@@ -6,7 +6,7 @@ export XDG_CURRENT_DESKTOP=KDE
 export XDG_SESSION_DESKTOP=KDE
 export XDG_MENU_PREFIX=plasma-
 export KDE_FULL_SESSION=true
-# QPainter is only for KWin. Qt Quick needs shaders for app icons and masks.
+# Native KWin SceneEffects and Plasma both use software OpenGL.
 unset QT_QUICK_BACKEND
 export QSG_RHI_BACKEND=opengl LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe
 export QML_XHR_ALLOW_FILE_READ=1
@@ -17,10 +17,9 @@ bus_pid=''
 battery_pid=''
 shell_pid=''
 clipboard_pid=''
-switcher_pid=''
 cleanup(){
     trap - EXIT INT TERM
-    for pid in "$shell_pid" "$clipboard_pid" "$switcher_pid" "$battery_pid" "$bus_pid"; do
+    for pid in "$shell_pid" "$clipboard_pid" "$battery_pid" "$bus_pid"; do
         [[ -z $pid ]] || kill -TERM "$pid" 2>/dev/null || true
     done
     wait 2>/dev/null || true
@@ -62,10 +61,6 @@ if command -v wl-paste >/dev/null && [[ -d /run/archohall-host/requests ]]; then
     clipboard_pid=$!
 fi
 # Minimal mobile shell, independent of systemd user services.
-if [[ -x /opt/archohall-kwin-compat/bin/kwin_wayland ]] && python3 -c 'import dbus_fast' 2>/dev/null; then
-    /usr/local/bin/archohall-task-switcher &
-    switcher_pid=$!
-fi
 plasmashell -p org.kde.plasma.mobileshell &
 shell_pid=$!
 wait "$shell_pid"

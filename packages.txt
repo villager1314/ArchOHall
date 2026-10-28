@@ -25,3 +25,9 @@ plasma-pa
 python-dbus-fast
 ffmpeg
 libnotify
+plasma-settings
+fastfetch
+wl-clipboard
+libpulse
+alsa-plugins
+qt6-tools

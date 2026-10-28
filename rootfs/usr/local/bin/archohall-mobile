@@ -46,7 +46,7 @@ kwin_cmd=kwin_wayland
 extra=(--xwayland)
 if [[ -x /opt/archohall-kwin-compat/bin/kwin_wayland ]]; then
     kwin_cmd=/usr/local/bin/archohall-kwin-compat
-    extra=()
+    extra=(--xwayland)
 fi
 exec dbus-run-session -- "$kwin_cmd" \
     --x11-display "$DISPLAY" \

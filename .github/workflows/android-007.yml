@@ -1,0 +1,42 @@
+name: Build and publish Android 0.07 with native multitasking
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, feature/native-007]
+    paths: ['.github/workflows/android-007.yml', 'diagnostics/native007/**']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: android-007
+  cancel-in-progress: false
+jobs:
+  rootfs:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Build matching rootfs and test stock mobile task switcher
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl gnupg xz-utils
+          mkdir -p dist
+          set -o pipefail
+          sudo --preserve-env=GITHUB_SHA bash scripts/build-rootfs.sh 2>&1 | tee native-build.log
+      - name: Upload matched rootfs and native compositor
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: archohall-rootfs-native-007
+          path: dist/
+          retention-days: 30
+          compression-level: 0
+      - name: Upload native test diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: native-007-diagnostics
+          path: |
+            native-build.log
+            .build/rootfs/native-results/
+            .build/rootfs/build/native-output/CMakeFiles/CMakeConfigureLog.yaml

@@ -49,7 +49,30 @@ install -m 644 "$project/packages.txt" "$root/tmp/archohall-packages.txt"
 install -m 755 "$project/scripts/provision.sh" "$root/tmp/archohall-provision.sh"
 # Qt tools used for validation must not try to connect to the runner display.
 chroot "$root" /usr/bin/env QT_QPA_PLATFORM=offscreen /bin/bash /tmp/archohall-provision.sh
-cp "$root/root/archohall-packages.txt" "$out/packages.txt"
+# Build and validate a matching compositor; native Plasma Mobile assets stay upstream.
+mkdir -p "$root/opt/native007"
+cp -a "$project/diagnostics/native007/." "$root/opt/native007/"
+chroot "$root" /bin/bash /opt/native007/build-in-arch.sh
+chroot "$root" /bin/bash /opt/native007/test-in-arch.sh
+cp -a "$root/native-results" "$out/native-results"
+cp "$root/tmp/kwin-native-source.tar.gz" "$out/kwin-native-upstream-source.tar.gz"
+cp -a "$project/diagnostics/native007" "$out/native-build-scripts"
+tar -C "$root" -cJf "$out/archohall-native-007-aarch64.tar.xz" opt/archohall-kwin-compat usr/local/bin/archohall-kwin-compat
+python3 - "$root" "$out" <<'PYMETA'
+from pathlib import Path
+import json,hashlib,subprocess,sys
+root,out=map(Path,sys.argv[1:])
+packages={}
+for name in ['kwin','plasma-mobile','qt6-base','qt6-declarative','qt6-wayland','kglobalacceld']:
+ packages[name]=subprocess.check_output(['chroot',str(root),'pacman','-Q',name],text=True).split()[1]
+meta={'schema':1,'version':'0.07','kwinSource':'1b798c05c19b1124edb1e16623191fcd2c128fd0','renderer':'llvmpipe-OpenGL-SHM','sha256':hashlib.sha256((out/'archohall-native-007-aarch64.tar.xz').read_bytes()).hexdigest(),'packages':packages}
+(out/'native-component.json').write_text(json.dumps(meta,indent=2)+'\n')
+(root/'opt/archohall-kwin-compat/native-component.json').write_text(json.dumps(meta,indent=2)+'\n')
+(root/'.archohall-native-007').write_text('0.07\n')
+PYMETA
+# The component archive is deliberately hashed before its external manifest is written.
+rm -rf "$root/build" "$root/opt/native007" "$root/native-results"
+chroot "$root" pacman -Q > "$out/packages.txt"
 rm -f "$root/root/archohall-packages.txt" "$root/tmp/archohall-packages.txt" "$root/tmp/archohall-provision.sh"
 cleanup
 trap - EXIT
