@@ -1,15 +1,17 @@
 <div align="center">
 
+<img src="docs/assets/archohall.svg" width="128" alt="ArchOHall 应用图标"/>
+
 # ArchOHall
 
 **在 Android 手机上运行 Arch Linux ARM 与 KDE Plasma Mobile，无需 root。**
 
-[![Version](https://img.shields.io/badge/version-0.06-4961AC?style=for-the-badge)](https://github.com/villager1314/ArchOHall/actions/runs/40523515699)
+[![Version](https://img.shields.io/badge/version-0.06-4961AC?style=for-the-badge)](https://github.com/villager1314/ArchOHall/releases/tag/android-0.06)
 [![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](#-设备要求)
 [![Architecture](https://img.shields.io/badge/architecture-ARM64-1793D1?style=for-the-badge&logo=archlinux&logoColor=white)](#-工作原理)
 [![License](https://img.shields.io/badge/license-MIT_%2F_GPL--3.0-4961AC?style=for-the-badge)](#-许可证)
 
-[下载 APK](https://github.com/villager1314/ArchOHall/actions/runs/40523515699) · [快速开始](#-快速开始) · [已知限制](#-当前状态与已知限制) · [反馈问题](https://github.com/villager1314/ArchOHall/issues)
+[下载 APK](https://github.com/villager1314/ArchOHall/releases/tag/android-0.06) · [快速开始](#-快速开始) · [已知限制](#-当前状态与已知限制) · [反馈问题](https://github.com/villager1314/ArchOHall/issues)
 
 </div>
 
@@ -32,11 +34,11 @@ APK 内置宿主运行环境，Arch Linux 桌面镜像单独导入。运行时�
 
 | 内容 | 下载入口 | 说明 |
 | --- | --- | --- |
-| Android 0.06 APK | [已通过检查的构建](https://github.com/villager1314/ArchOHall/actions/runs/40523515699) | 在 Artifacts 下载 `ArchOHall-0.06-arm64`，解压后安装 APK |
+| Android 0.06 APK | [0.06 实验版 Release](https://github.com/villager1314/ArchOHall/releases/tag/android-0.06) | 下载并安装 `ArchOHall-0.06-arm64.apk` |
 | ArchOHall 桌面镜像 | [rootfs 构建记录](https://github.com/villager1314/ArchOHall/actions/workflows/rootfs.yml) | 从成功构建的 Artifacts 下载镜像包，核对构建说明与兼容要求 |
 | 后续 APK 构建 | [Android 构建记录](https://github.com/villager1314/ArchOHall/actions/workflows/android.yml) | 可查看测试结果、版本和构建产物 |
 
-下载 GitHub Actions 产物通常需要登录 GitHub，产物有保留期限。0.06 当前为实验构建，其源码和详细说明位于 [桌面修复分支](https://github.com/villager1314/ArchOHall/tree/fix/android-desktop-bridge)。项目目前没有 Releases 下载包。
+APK 通过 GitHub Release 提供直接下载，并附带校验和与运行环境清单。Actions 保留构建日志和限期产物；下载 Actions 产物通常需要登录 GitHub。0.06 为实验性预发行版，已验证 APK 的构建源码固定在 [`81e67ee`](https://github.com/villager1314/ArchOHall/commit/81e67eec69c47bc5689fa0a42a4652d1e64f87d8)。
 
 **0.06 升级只需要新 APK，继续使用现有容器。** 新安装则需要另行准备与当前兼容组件匹配的 ArchOHall 镜像；任意滚动构建的 Qt/KDE 版本未必兼容。
 
@@ -58,7 +60,7 @@ APK 内置宿主运行环境，Arch Linux 桌面镜像单独导入。运行时�
 2. 打开控制页，点击一次 **应用桌面修复与 Android 桥接**，等待配置与组件安装完成。
 3. 重新启动桌面，保留原有容器、应用和个人文件。
 
-卸载应用会删除其私有数据，请先做好备份。早期使用临时签名的构建不能直接覆盖固定签名版本，迁移前请阅读 [安装说明](https://github.com/villager1314/ArchOHall/blob/fix/android-desktop-bridge/android/README.md)。
+卸载应用会删除其私有数据，请先做好备份。早期使用临时签名的构建不能直接覆盖固定签名版本，迁移前请阅读 [安装说明](android/README.md)。
 
 ## 📋 设备要求
 
@@ -90,20 +92,21 @@ Plasma Mobile 已在 ARM64 手机上启动，软件渲染、缩放和应用列�
 
 需要密码、Polkit、设备节点或 systemd 服务的设置页，可能无法在 PRoot 中正常工作。暂未内置 Discover 应用商店。不要单独升级 Qt/KDE 库；整体升级也可能破坏当前兼容环境，应先备份并核对兼容要求。
 
-实现范围、备份与验证记录见 [0.06 修复说明](https://github.com/villager1314/ArchOHall/blob/fix/android-desktop-bridge/diagnostics/ANDROID-006.md)。
+实现范围、备份与验证记录见 [0.06 修复说明](diagnostics/ANDROID-006.md)。
 
 ## 🛠️ 从源码构建
 
-推荐使用仓库的 [Android 构建工作流](https://github.com/villager1314/ArchOHall/blob/fix/android-desktop-bridge/.github/workflows/android.yml)。0.06 源码可通过以下方式获取：
+推荐使用仓库的 [Android 构建工作流](.github/workflows/android.yml)。开发源码可通过以下方式获取；复现已发布 APK 请检出 Release 标签：
 
 ```bash
-git clone --branch fix/android-desktop-bridge https://github.com/villager1314/ArchOHall.git
+git clone https://github.com/villager1314/ArchOHall.git
 cd ArchOHall
+# 复现已发布的 0.06：git checkout android-0.06
 ```
 
 构建使用 Python 3、JDK 17 和 Android SDK 36。工作流会组合锁定的 Termux / Termux:X11 源码、校验离线运行包与兼容组件，执行测试，再使用配置好的固定密钥签名。
 
-正式分发构建要求配置 `ARCHOHALL_SIGNING_BUNDLE` Secret；缺少配置会停止构建，不会改用临时签名。详细步骤与签名要求见 [Android 构建说明](https://github.com/villager1314/ArchOHall/blob/fix/android-desktop-bridge/android/README.md)。rootfs 镜像有独立构建工作流，0.06 APK 升级无需重建镜像。
+正式分发构建要求配置 `ARCHOHALL_SIGNING_BUNDLE` Secret；缺少配置会停止构建，不会改用临时签名。详细步骤与签名要求见 [Android 构建说明](android/README.md)。rootfs 镜像有独立的手动构建工作流，0.06 APK 升级无需重建镜像。
 
 <details>
 <summary>项目目录</summary>
@@ -133,7 +136,7 @@ ArchOHall 基于以下开源项目构建：
 - [源代码](https://github.com/villager1314/ArchOHall)
 - [构建与下载](https://github.com/villager1314/ArchOHall/actions)
 - [问题反馈](https://github.com/villager1314/ArchOHall/issues)
-- [Android 使用与版本记录](https://github.com/villager1314/ArchOHall/blob/fix/android-desktop-bridge/android/README.md)
+- [Android 使用与版本记录](android/README.md)
 
 ## 📄 许可证
 

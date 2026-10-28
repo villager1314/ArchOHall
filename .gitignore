@@ -3,3 +3,8 @@
 /.android-build/
 /android/local.properties
 __pycache__/
+__pycache__/
+*.pyc
+/rootfs/usr/local/share/archohall/quicksettings/
+
+/rootfs/usr/local/share/archohall/controls/

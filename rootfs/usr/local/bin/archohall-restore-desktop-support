@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+restore_file(){
+    local backup=$1 original=$2 temporary
+    temporary=$(mktemp "${original}.restore.XXXXXX")
+    cp -p -- "$backup" "$temporary"
+    mv -f -- "$temporary" "$original"
+}
+echo '先停止桌面，再恢复由桌面组件修复入口保存的文件。'
+if [[ -x /usr/local/bin/archohall-install-tiles ]]; then
+    /usr/local/bin/archohall-install-tiles --restore
+fi
+while IFS= read -r -d '' backup; do
+    original=${backup%.before-support-006}
+    restore_file "$backup" "$original"
+done < <(find /usr/local -type f -name '*.before-support-006' -print0)
+
+while IFS= read -r -d '' backup; do
+    original=${backup%.before-config-006}
+    restore_file "$backup" "$original"
+done < <(find /etc /home/arch/.config /usr/share/plasma/quicksettings -type f -name '*.before-config-006' -print0)
+if [[ -f /usr/local/share/archohall/sudo-mode-before-006 ]]; then
+    mode=$(cat /usr/local/share/archohall/sudo-mode-before-006)
+    chmod "${mode#0o}" /usr/bin/sudo
+fi
+rm -f /.archohall-support-006
+
+echo '已恢复备份的脚本、配置和快捷设置；安装的软件包保留。'

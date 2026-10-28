@@ -16,7 +16,6 @@ from prepare_project import REPO, WORK, PROJECT, LOCK
 CACHE = WORK / 'downloads'
 BASE = 'https://packages.termux.dev/apt/termux-main/'
 TERMUX_APK = 'https://github.com/termux/termux-app/releases/download/v0.118.3/termux-app_v0.118.3%2Bgithub-debug_arm64-v8a.apk'
-X11_APK = 'https://github.com/termux/termux-x11/releases/download/nightly/termux-x11-universal-debug.apk'
 PAIRS = [('data/data/com.termux', 'data/data/com.archoh'),
          ('data/user/0/com.termux', 'data/user/0/com.archoh'),
          ('"com.termux"', '"com.archoh"'), ("'com.termux'", "'com.archoh'"),
@@ -75,7 +74,16 @@ def main():
     sums = download('https://github.com/termux/termux-app/releases/download/v0.118.3/termux-app_v0.118.3%2Bgithub-debug_sha256sums', 'termux-sha256sums')
     expected = next(line.split()[0] for line in sums.read_text().splitlines() if line.endswith('github-debug_arm64-v8a.apk'))
     termux_apk = download(TERMUX_APK, 'termux.apk', expected)
-    x11_apk = download(X11_APK, 'x11.apk', LOCK['x11_apk_sha256'])
+    # The upstream nightly asset is mutable. Preserve the exact JNI donor that
+    # the fixed-signature 0.04 build already validated against the pinned source.
+    retained=list((WORK/'x11-retained').rglob('ArchOHall-0.04-arm64.apk'))
+    if len(retained)!=1:
+        raise RuntimeError('Expected the retained, checksum-locked 0.04 X11 donor APK')
+    donor=retained[0].read_bytes()
+    if hashlib.sha256(donor).hexdigest()!=LOCK['x11_retained_sha256']:
+        raise RuntimeError('Retained X11 donor checksum mismatch')
+    x11_apk=CACHE/'x11.apk'
+    x11_apk.write_bytes(donor)
     with zipfile.ZipFile(termux_apk) as apk:
         bootstrap = zipfile.ZipFile(io.BytesIO(apk.read('lib/arm64-v8a/libtermux-bootstrap.so')))
         termux_jni = apk.read('lib/arm64-v8a/libtermux.so')
@@ -278,11 +286,13 @@ exec /system/bin/app_process /system/bin --nice-name=archohall-relocate com.term
         raise RuntimeError('Desktop compatibility archive checksum mismatch')
     (assets/'desktop-compat.tar.xz').write_bytes(compat)
     (assets/'compat-install').write_bytes((REPO/'android/desktop-compat-install.sh').read_bytes())
-    mobile = (REPO/'rootfs/usr/local/bin/archohall-mobile').read_text().replace('exec dbus-run-session -- kwin_wayland', 'exec dbus-run-session -- /usr/local/bin/archohall-kwin-compat').replace(' --xwayland', '')
-    session = (REPO/'rootfs/usr/local/bin/archohall-session').read_text().replace('export QT_QPA_PLATFORM=wayland', 'export QT_QPA_PLATFORM=wayland\nexport QT_QUICK_BACKEND=software\nexport QT_FORCE_STDERR_LOGGING=1')
+    mobile = (REPO/'rootfs/usr/local/bin/archohall-mobile').read_text()
+    session = (REPO/'rootfs/usr/local/bin/archohall-session').read_text()
     (assets/'compat-mobile').write_text(mobile)
-    session = session.replace('exec plasmashell ', 'trap \'echo \"Plasma shell exit=$?\" >&2\' EXIT\nplasmashell ')
     (assets/'compat-session').write_text(session)
+    from build_desktop_support import build as build_desktop_support
+    build_desktop_support(assets/'desktop-support.zip')
+    (assets/'host-audio.sh').write_bytes((REPO/'android/host-bridge/host-audio.sh').read_bytes())
     manifest['desktopCompatibility'] = {'kwin': '6.7.5', 'renderer': 'QPainter', 'sha256': LOCK['compat_sha256'], 'ciRun': LOCK['compat_run_id']}
     (assets/'runtime-manifest.json').write_text(json.dumps(manifest, indent=2))
     print('Offline runtime:', len(wanted), 'packages,', output.stat().st_size, 'bytes')

@@ -20,3 +20,8 @@ xz
 noto-fonts
 noto-fonts-cjk
 noto-fonts-emoji
+plasma-keyboard
+plasma-pa
+python-dbus-fast
+ffmpeg
+libnotify

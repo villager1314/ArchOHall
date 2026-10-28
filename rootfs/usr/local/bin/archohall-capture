@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Capture our Linux X11 surface only, not the Android display or microphone.
+set -euo pipefail
+export DISPLAY="${DISPLAY:-:0}"
+cache="${XDG_CACHE_HOME:-$HOME/.cache}/archohall"
+mkdir -p "$cache" "$HOME/Pictures/ArchOHall" "$HOME/Videos/ArchOHall"
+notice(){ if command -v notify-send >/dev/null; then notify-send ArchOHall "$1"; else echo "$1" >&2; fi; }
+command -v ffmpeg >/dev/null || { notice '请安装 ffmpeg 后再使用截图和录屏'; exit 1; }
+case "${1:-}" in
+    screenshot)
+        sleep 1
+        output="$HOME/Pictures/ArchOHall/$(date +%Y%m%d-%H%M%S)-$$.png"
+        ffmpeg -nostdin -y -f x11grab -i "$DISPLAY" -frames:v 1 "$output" >"$cache/screenshot.log" 2>&1 || { notice '截图失败，请查看 ~/.cache/archohall/screenshot.log'; exit 1; }
+        notice "已保存 $output"
+        ;;
+    toggle)
+        if [[ -f $cache/record.pid ]]; then
+            pid=$(cat "$cache/record.pid")
+            if [[ $pid =~ ^[1-9][0-9]*$ ]] && [[ -r /proc/$pid/cmdline ]] && tr '\0' '\n' <"/proc/$pid/cmdline" | grep -Fxq '/usr/local/bin/archohall-capture'; then
+                kill -USR1 "$pid"; exit
+            fi
+            rm -f "$cache/record.pid" "$cache/recording"
+        fi
+        # Own the recording in this process so stop requests cannot kill unrelated PIDs.
+        printf '%s\n' $$ > "$cache/record.pid"
+        output="$HOME/Videos/ArchOHall/$(date +%Y%m%d-%H%M%S)-$$.mp4"
+        encoder=''
+        cleanup(){ [[ -z $encoder ]] || { kill -INT "$encoder" 2>/dev/null || true; wait "$encoder" 2>/dev/null || true; }; rm -f "$cache/record.pid" "$cache/recording"; }
+        trap cleanup EXIT
+        trap 'exit 0' USR1 INT TERM
+        sleep 1
+        ffmpeg -nostdin -y -f x11grab -framerate 20 -i "$DISPLAY" \
+            -vf 'pad=ceil(iw/2)*2:ceil(ih/2)*2' -c:v libx264 -preset ultrafast -pix_fmt yuv420p -movflags +frag_keyframe+empty_moov \
+            "$output" >"$cache/record.log" 2>&1 &
+        encoder=$!
+        touch "$cache/recording"
+        if wait "$encoder"; then notice "已保存 $output"; else notice '录屏已结束，请查看 ~/.cache/archohall/record.log'; fi
+        encoder=''
+        ;;
+    *) echo 'Usage: archohall-capture screenshot|toggle' >&2; exit 2 ;;
+esac

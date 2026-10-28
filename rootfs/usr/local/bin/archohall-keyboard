@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+unset QT_QUICK_BACKEND
+export QSG_RHI_BACKEND=opengl LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe
+if command -v plasma-keyboard >/dev/null; then exec plasma-keyboard "$@"; fi
+if command -v maliit-keyboard >/dev/null; then exec maliit-keyboard "$@"; fi
+echo 'No Wayland keyboard installed; install plasma-keyboard.' >&2
+exit 1

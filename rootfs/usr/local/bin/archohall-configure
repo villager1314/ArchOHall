@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+"""Idempotent guest configuration shared by image builds and APK migrations."""
+import os
+from pathlib import Path
+import re
+import shutil
+import stat
+import subprocess
+import tempfile
+
+
+def save(path, text, mode=None):
+    if path.exists() and path.read_text() == text:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    backup = Path(str(path) + '.before-config-006')
+    if path.exists() and not backup.exists():
+        shutil.copy2(path, backup)
+    with tempfile.NamedTemporaryFile(mode='w', dir=path.parent, delete=False) as f:
+        temporary = Path(f.name)
+        f.write(text)
+    temporary.chmod(mode if mode is not None else stat.S_IMODE(path.stat().st_mode) if path.exists() else 0o644)
+    temporary.replace(path)
+
+
+def configure(root=Path('/'), validate_sudo=True):
+    pacman = root / 'etc/pacman.conf'
+    text = pacman.read_text()
+    text = re.sub(r'^\s*DownloadUser\s*=.*$', '# DownloadUser disabled for Android PRoot', text, flags=re.M)
+    if not re.search(r'^\s*DisableSandbox\s*$', text, re.M):
+        text, count = re.subn(r'^(\s*\[options\]\s*)$', r'\1\nDisableSandbox', text, count=1, flags=re.M)
+        if count != 1:
+            raise RuntimeError('Missing pacman [options]; refusing to modify configuration')
+    save(pacman, text)
+
+    sudo = root / 'usr/bin/sudo'
+    sudoers = root / 'etc/sudoers'
+    if sudo.is_file() and sudoers.is_file():
+        rule = 'arch ALL=(ALL:ALL) NOPASSWD: ALL'
+        text = sudoers.read_text()
+        if rule not in text.splitlines():
+            text = text.rstrip() + '\n\n# ArchOHall container-only simulated root\n' + rule + '\n'
+        if validate_sudo:
+            with tempfile.NamedTemporaryFile(mode='w', dir=sudoers.parent, delete=False) as f:
+                temporary = Path(f.name)
+                f.write(text)
+            try:
+                temporary.chmod(0o440)
+                subprocess.run([str(root / 'usr/bin/visudo'), '-cf', str(temporary)], check=True)
+            finally:
+                temporary.unlink(missing_ok=True)
+        save(sudoers, text, 0o440)
+        # SafeTar strips set-id bits on import. Restore this one known executable
+        # for PRoot's setuid emulation; never chown Android files to real root.
+        mode_backup = root / 'usr/local/share/archohall/sudo-mode-before-006'
+        if not mode_backup.exists():
+            save(mode_backup, oct(stat.S_IMODE(sudo.stat().st_mode)) + '\n')
+        sudo.chmod(stat.S_IMODE(sudo.stat().st_mode) | stat.S_ISUID)
+
+    # Install an explicit guest client endpoint; never start a second Linux server.
+    audio = root / 'run/archohall-host/audio.env'
+    if audio.is_file():
+        values = dict(line.split('=', 1) for line in audio.read_text().splitlines() if '=' in line)
+        server = values.get('PULSE_SERVER', '')
+        if re.fullmatch(r'tcp:127\.0\.0\.1:[0-9]{4,5}', server):
+            client = ('default-server = ' + server + '\n'
+                      'cookie-file = /tmp/archohall-pulse-cookie\n'
+                      'autospawn = no\nenable-shm = no\nenable-memfd = no\n')
+            save(root / 'etc/pulse/client.conf.d/90-archohall.conf', client)
+    if (root / 'usr/lib/alsa-lib/libasound_module_pcm_pulse.so').exists():
+        alsa = root / 'home/arch/.asoundrc'
+        if not alsa.exists():
+            save(alsa, 'pcm.!default { type pulse }\nctl.!default { type pulse }\n')
+
+    # Seed preferences only when users have not selected their own locales.
+    config = root / 'home/arch/.config/plasmakeyboardrc'
+    text = config.read_text() if config.exists() else ''
+    for key, value in [('enabledLocales', 'en_US,zh_CN'), ('autoCapitalizationEnabled', 'false')]:
+        if re.search(r'^' + key + r'\s*=', text, re.M):
+            continue
+        if '[General]' not in text.splitlines():
+            text += '\n[General]\n'
+        text = text.replace('[General]', '[General]\n' + key + '=' + value, 1)
+    save(config, text)
+
+    routes = {'settingsapp': '/usr/local/bin/archohall-open-settings',
+              'keyboardtoggle': '/usr/local/bin/archohall-open-settings kcm_virtualkeyboard'}
+    for name, command in routes.items():
+        path = root / ('usr/share/plasma/quicksettings/org.kde.plasma.quicksetting.' + name + '/contents/ui/main.qml')
+        if path.is_file():
+            text = re.sub(r'^\s*settingsCommand:.*$', '    settingsCommand: "' + command + '"', path.read_text(), flags=re.M)
+            # Also fix the keyboard's unavailable-input-method fallback.
+            text = text.replace('plasma-open-settings kcm_mobile_onscreenkeyboard',
+                                '/usr/local/bin/archohall-open-settings kcm_virtualkeyboard')
+            save(path, text)
+
+
+if __name__ == '__main__':
+    if os.geteuid() != 0:
+        raise SystemExit('Run as container simulated root')
+    configure()
+    print('Rootfs configuration ready: sudo, keyboard languages, pacman, settings routes')

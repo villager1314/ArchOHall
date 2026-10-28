@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+"""Task-panel shortcut receiver for the QPainter compatibility KWin only."""
+import asyncio
+import os
+import signal
+from pathlib import Path
+
+from dbus_fast.aio import MessageBus
+from dbus_fast.constants import NameFlag, RequestNameReply
+from dbus_fast.service import ServiceInterface, dbus_method
+
+
+class TaskSwitcher(ServiceInterface):
+    def __init__(self, spawn=asyncio.create_subprocess_exec):
+        super().__init__('org.kde.kglobalaccel.Component')
+        self.spawn = spawn
+        self.process = None
+        self.lock = asyncio.Lock()
+
+    @dbus_method()
+    async def invokeShortcut(self, shortcut: 's'):
+        if shortcut != 'Mobile Task Switcher':
+            return
+        async with self.lock:
+            await self.toggle()
+
+    async def toggle(self):
+        # Repeated presses toggle the single owned window; never kill other qml apps.
+        if self.process is not None and self.process.returncode is None:
+            try:
+                self.process.terminate()
+            except ProcessLookupError:
+                pass
+            await self.process.wait()
+            self.process = None
+            return
+        env = dict(os.environ)
+        env.pop('QT_QUICK_BACKEND', None)
+        env.update(QSG_RHI_BACKEND='opengl', LIBGL_ALWAYS_SOFTWARE='1', GALLIUM_DRIVER='llvmpipe')
+        self.process = await self.spawn('/usr/lib/qt6/bin/qml',
+                                       '/usr/local/share/archohall/TaskSwitcher.qml', env=env)
+
+
+async def main():
+    if not Path('/opt/archohall-kwin-compat/bin/kwin_wayland').is_file():
+        return
+    bus = await MessageBus().connect()
+    switcher = TaskSwitcher()
+    # Do not replace or queue behind a real kglobalacceld if it is present.
+    bus.export('/component/kwin', switcher)
+    reply = await bus.request_name('org.kde.kglobalaccel', NameFlag.DO_NOT_QUEUE)
+    if reply != RequestNameReply.PRIMARY_OWNER:
+        bus.disconnect()
+        return
+    print('Compatibility task switcher ready', flush=True)
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        asyncio.get_running_loop().add_signal_handler(sig, bus.disconnect)
+    try:
+        await bus.wait_for_disconnect()
+    finally:
+        if switcher.process is not None and switcher.process.returncode is None:
+            switcher.process.terminate()
+            await switcher.process.wait()
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

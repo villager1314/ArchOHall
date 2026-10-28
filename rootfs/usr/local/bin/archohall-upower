@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+"""Read-only UPower facade for the Android battery on a private container bus."""
+import asyncio
+import json
+import os
+import time
+from pathlib import Path
+
+from dbus_fast import DBusError
+from dbus_fast.aio import MessageBus
+from dbus_fast.constants import PropertyAccess
+from dbus_fast.service import ServiceInterface, dbus_method, dbus_property
+
+ROOT = '/org/freedesktop/UPower'
+DEVICE = ROOT + '/devices/battery_android'
+STATE = Path(os.environ.get('ARCHOHALL_HOST_STATE','/run/archohall-host/state.json'))
+
+
+def read_state(path=STATE):
+    try:
+        value = json.loads(path.read_text())
+        if value.get('schema') != 1 or abs(time.time() * 1000 - value.get('timestamp', 0)) > 15000:
+            return {}
+        return value
+    except (OSError, ValueError, TypeError):
+        return {}
+
+
+def battery_properties(state):
+    percentage = state.get('battery')
+    present = isinstance(percentage, (int, float)) and state.get('batteryPresent', True)
+    plugged = state.get('plugged', False)
+    status = state.get('batteryStatus', 1)
+    return {
+        'IsPresent': bool(present),
+        'Percentage': float(max(0, min(100, percentage))) if present else 0.0,
+        'State': 0 if not present else {2: 1, 3: 2, 5: 4}.get(status, 5 if status == 4 and plugged else 0),
+        'UpdateTime': int(state.get('timestamp', 0) / 1000) if present else 0,
+        'IconName': 'battery-missing' if not present else 'battery-full-charged' if status == 5 else 'battery-good-charging' if plugged else 'battery-good',
+        'Model': str(state.get('model', 'Android battery')),
+    }
+
+
+class Battery(ServiceInterface):
+    def __init__(self):
+        super().__init__('org.freedesktop.UPower.Device')
+        self.state = read_state()
+        self.values = battery_properties(self.state)
+
+    @dbus_property(access=PropertyAccess.READ)
+    def NativePath(self) -> 's': return 'android:battery'
+    @dbus_property(access=PropertyAccess.READ)
+    def Vendor(self) -> 's': return 'Android'
+    @dbus_property(access=PropertyAccess.READ)
+    def Model(self) -> 's': return self.values['Model']
+    @dbus_property(access=PropertyAccess.READ)
+    def Serial(self) -> 's': return ''
+    @dbus_property(access=PropertyAccess.READ)
+    def Type(self) -> 'u': return 2
+    @dbus_property(access=PropertyAccess.READ)
+    def PowerSupply(self) -> 'b': return True
+    @dbus_property(access=PropertyAccess.READ)
+    def IsRechargeable(self) -> 'b': return True
+    @dbus_property(access=PropertyAccess.READ)
+    def IsPresent(self) -> 'b': return self.values['IsPresent']
+    @dbus_property(access=PropertyAccess.READ)
+    def Percentage(self) -> 'd': return self.values['Percentage']
+    @dbus_property(access=PropertyAccess.READ)
+    def State(self) -> 'u': return self.values['State']
+    @dbus_property(access=PropertyAccess.READ)
+    def UpdateTime(self) -> 't': return self.values['UpdateTime']
+    @dbus_property(access=PropertyAccess.READ)
+    def IconName(self) -> 's': return self.values['IconName']
+    @dbus_property(access=PropertyAccess.READ)
+    def HasHistory(self) -> 'b': return False
+    @dbus_property(access=PropertyAccess.READ)
+    def HasStatistics(self) -> 'b': return False
+    @dbus_property(access=PropertyAccess.READ)
+    def Online(self) -> 'b': return bool(self.state.get('plugged', False))
+    @dbus_property(access=PropertyAccess.READ)
+    def Technology(self) -> 'u': return 0
+    @dbus_property(access=PropertyAccess.READ)
+    def WarningLevel(self) -> 'u': return 0 if not self.IsPresent else 4 if self.Percentage <= 5 else 3 if self.Percentage <= 15 else 1
+    @dbus_property(access=PropertyAccess.READ)
+    def BatteryLevel(self) -> 'u': return 1 if self.IsPresent else 0
+    @dbus_property(access=PropertyAccess.READ)
+    def Capacity(self) -> 'd': return 0.0
+    @dbus_property(access=PropertyAccess.READ)
+    def Energy(self) -> 'd': return 0.0
+    @dbus_property(access=PropertyAccess.READ)
+    def EnergyFull(self) -> 'd': return 0.0
+    @dbus_property(access=PropertyAccess.READ)
+    def EnergyFullDesign(self) -> 'd': return 0.0
+    @dbus_property(access=PropertyAccess.READ)
+    def EnergyEmpty(self) -> 'd': return 0.0
+    @dbus_property(access=PropertyAccess.READ)
+    def EnergyRate(self) -> 'd': return 0.0
+    @dbus_property(access=PropertyAccess.READ)
+    def Voltage(self) -> 'd': return 0.0
+    @dbus_property(access=PropertyAccess.READ)
+    def TimeToEmpty(self) -> 'x': return 0
+    @dbus_property(access=PropertyAccess.READ)
+    def TimeToFull(self) -> 'x': return 0
+    @dbus_method()
+    def Refresh(self): pass
+
+
+class Power(ServiceInterface):
+    def __init__(self, battery):
+        super().__init__('org.freedesktop.UPower')
+        self.battery = battery
+
+    @dbus_method()
+    def EnumerateDevices(self) -> 'ao': return [DEVICE]
+    @dbus_method()
+    def GetDisplayDevice(self) -> 'o': return DEVICE
+    @dbus_method()
+    def GetCriticalAction(self) -> 's': return 'Ignore'
+    @dbus_property(access=PropertyAccess.READ)
+    def DaemonVersion(self) -> 's': return '1.90.0'
+    @dbus_property(access=PropertyAccess.READ)
+    def OnBattery(self) -> 'b': return self.battery.IsPresent and not self.battery.Online
+    @dbus_property(access=PropertyAccess.READ)
+    def LidIsPresent(self) -> 'b': return False
+    @dbus_property(access=PropertyAccess.READ)
+    def LidIsClosed(self) -> 'b': return False
+
+
+async def serve():
+    address = os.environ.get('DBUS_SYSTEM_BUS_ADDRESS')
+    if not address or '/archohall-' not in address:
+        raise RuntimeError('Refusing to claim UPower on a non-ArchOHall bus')
+    bus = await MessageBus(bus_address=address).connect()
+    battery = Battery()
+    power = Power(battery)
+    bus.export(ROOT, power)
+    bus.export(DEVICE, battery)
+    await bus.request_name('org.freedesktop.UPower')
+    if os.environ.get('ARCHOHALL_UPOWER_READY'):
+        Path(os.environ['ARCHOHALL_UPOWER_READY']).touch()
+    print('Android battery bridge ready', flush=True)
+    while True:
+        old_on_battery = power.OnBattery
+        old = battery.values
+        battery.state = read_state()
+        battery.values = battery_properties(battery.state)
+        changed = {k: v for k, v in battery.values.items() if old.get(k) != v}
+        if changed:
+            changed.update(BatteryLevel=battery.BatteryLevel, Online=battery.Online, WarningLevel=battery.WarningLevel)
+            battery.emit_properties_changed(changed)
+        if old_on_battery != power.OnBattery:
+            power.emit_properties_changed({'OnBattery': power.OnBattery})
+        await asyncio.sleep(2)
+
+
+if __name__ == '__main__':
+    asyncio.run(serve())

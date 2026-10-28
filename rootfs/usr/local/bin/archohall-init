@@ -7,3 +7,5 @@ if [[ ! -s /etc/machine-id ]]; then
 fi
 mkdir -p /var/lib/dbus
 ln -sfn /etc/machine-id /var/lib/dbus/machine-id
+
+/usr/local/bin/archohall-configure

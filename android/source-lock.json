@@ -3,8 +3,10 @@
   "x11": "29d4460b26e69b39af023d255a255e2778251952",
   "x11_apk_sha256": "4774472f9a4f4fb42702a08dbbe9b5c37d59bb4905b0688f4c5e8b4576a3518d",
   "application_id": "com.archoh",
-  "version_name": "0.04",
-  "version_code": 6,
+  "version_name": "0.06",
+  "version_code": 8,
   "compat_run_id": 40464534205,
-  "compat_sha256": "8997a9cbf09361ce8614fda5925f21eb8bcd652ccd303f54433c40a1f58d28e4"
+  "compat_sha256": "8997a9cbf09361ce8614fda5925f21eb8bcd652ccd303f54433c40a1f58d28e4",
+  "x11_retained_run_id": 40487016574,
+  "x11_retained_sha256": "9fc2a385ff2ffd9ba9890b9b2bae3e7dbd933550b8a74c6df477451c3ca3ab8b"
 }

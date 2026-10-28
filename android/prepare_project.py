@@ -85,8 +85,8 @@ android {
   applicationId 'com.archoh'
   minSdk 26
   targetSdk 28
-  versionCode 6
-  versionName '0.04'
+  versionCode 8
+  versionName '0.06'
   manifestPlaceholders = [TERMUX_PACKAGE_NAME:'com.archoh', TERMUX_APP_NAME:'ArchOHall', TERMUX_API_APP_NAME:'Termux:API', TERMUX_BOOT_APP_NAME:'Termux:Boot', TERMUX_FLOAT_APP_NAME:'Termux:Float', TERMUX_STYLING_APP_NAME:'Termux:Styling', TERMUX_TASKER_APP_NAME:'Termux:Tasker', TERMUX_WIDGET_APP_NAME:'Termux:Widget']
   ndk { abiFilters 'arm64-v8a' }
  }
@@ -164,6 +164,28 @@ dependencies {
     help_path.write_text(help_path.read_text().replace('settings.setAppCacheEnabled(false);','// Application Cache API was removed from the Android SDK.'))
     constants = PROJECT/'termux-shared/src/main/java/com/termux/shared/termux/TermuxConstants.java'
     constants.write_text(re.sub(r'(public static final String [A-Z_]+_NAME = )TERMUX_PACKAGE_NAME \+ "(\.app[^"]*)"',r'\1"com.termux\2"',constants.read_text()))
+    constants.write_text(constants.read_text().replace('TERMUX_APP_NAME = "Termux"', 'TERMUX_APP_NAME = "ArchOHall"'))
+    service = PROJECT/'app/src/main/java/com/termux/app/TermuxService.java'
+    old = 'Intent notificationIntent = TermuxActivity.newInstance(this);'
+    assert old in service.read_text()
+    service.write_text(service.read_text().replace(old,
+        'Intent notificationIntent = new Intent(this, com.termux.app.archohall.ArchActivity.class)'
+        '.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);'))
+    lorie_app = PROJECT/'lorie/src/main/java/com/termux/x11/LorieApp.java'
+    lorie_text = lorie_app.read_text().replace('.setContentTitle("Termux:X11")', '.setContentTitle("ArchOHall · Linux 桌面")')
+    old = 'return TouchInputHandler.setupNotification(activity, activity.prefs, builder).build();'
+    assert old in lorie_text
+    lorie_app.write_text(lorie_text.replace(old, '''TouchInputHandler.setupNotification(activity, activity.prefs, builder);
+        builder.addAction(android.R.drawable.ic_menu_manage, "ArchOHall 控制台",
+            android.app.PendingIntent.getActivity(this, 47001,
+                new android.content.Intent().setClassName(this, "com.termux.app.archohall.ArchActivity")
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK | android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE));
+        return builder.build();'''))
+    # Brand visible task names in every locale; preserve upstream credits and namespaces.
+    for resources in (PROJECT/'lorie/src/main/res').glob('values*/strings.xml'):
+        resources.write_text(re.sub(r'(<string name="lorie_app_name"[^>]*>).*?(</string>)',
+                                    r'\1ArchOHall · Linux 桌面\2', resources.read_text()))
     # Fallback used by the built-in terminal after the foreground importer prepares assets.
     path = PROJECT / 'app/src/main/java/com/termux/app/TermuxInstaller.java'
     text = path.read_text().replace('final byte[] zipBytes = loadZipBytes();', 'final byte[] zipBytes = loadZipBytes(activity);')
@@ -211,6 +233,9 @@ dependencies {
                 if any(e.get(attr('name')) == 'android.intent.action.MAIN' for e in intent_filter.findall('action')):
                     component.remove(intent_filter)
         if main_app:
+            for component in application:
+                if component.get(attr('name')) == 'com.termux.app.TermuxActivity':
+                    component.set(attr('label'), 'ArchOHall · 终端')
             # app_process loads libXlorie directly from base.apk. Compressed JNI
             # entries cannot be dlopen'ed, even though the installed Activity works.
             application.set(attr('extractNativeLibs'), 'false')
@@ -219,18 +244,30 @@ dependencies {
             application.set(attr('label'), 'ArchOHall')
             application.set(attr('icon'), '@drawable/archohall_icon')
             application.set(attr('roundIcon'), '@drawable/archohall_icon')
-            activity = ET.SubElement(application, 'activity', {attr('name'):'com.termux.app.archohall.ArchActivity', attr('exported'):'true', attr('theme'):'@style/Theme.ArchOHall', attr('label'):'ArchOHall'})
+            activity = ET.SubElement(application, 'activity', {attr('name'):'com.termux.app.archohall.ArchActivity', attr('exported'):'true', attr('theme'):'@style/Theme.ArchOHall', attr('label'):'ArchOHall', attr('launchMode'):'singleTask', attr('taskAffinity'):'com.archoh.home', attr('alwaysRetainTaskState'):'true'})
             intent_filter = ET.SubElement(activity, 'intent-filter')
             ET.SubElement(intent_filter, 'action', {attr('name'):'android.intent.action.MAIN'})
             ET.SubElement(intent_filter, 'category', {attr('name'):'android.intent.category.LAUNCHER'})
             ET.SubElement(application, 'service', {attr('name'):'com.termux.app.archohall.ImportService', attr('exported'):'false'})
             ET.SubElement(root, 'uses-permission', {attr('name'):'android.permission.POST_NOTIFICATIONS'})
+            ET.SubElement(application, 'activity', {attr('name'):'com.termux.app.archohall.HostControlActivity', attr('exported'):'false', attr('theme'):'@android:style/Theme.Material.Light.Dialog.Alert', attr('label'):'ArchOHall Android 控制'})
+            for permission in ('ACCESS_NETWORK_STATE', 'ACCESS_WIFI_STATE', 'BLUETOOTH', 'ACCESS_NOTIFICATION_POLICY', 'MODIFY_AUDIO_SETTINGS'):
+                name = 'android.permission.' + permission
+                if not any(e.get(attr('name')) == name for e in root.findall('uses-permission')):
+                    ET.SubElement(root, 'uses-permission', {attr('name'):name})
             application.set(attr('requestLegacyExternalStorage'), 'true')
             ET.SubElement(root, 'uses-permission', {attr('name'):'android.permission.READ_EXTERNAL_STORAGE'})
         else:
             for component in application:
                 if component.tag in ('activity', 'receiver'):
                     component.set(attr('exported'), 'false')
+                if component.get(attr('name')) == 'com.termux.x11.MainActivity':
+                    component.set(attr('taskAffinity'), 'com.archoh.desktop')
+                    component.set(attr('label'), 'ArchOHall · Linux 桌面')
+                    component.set(attr('icon'), '@drawable/archohall_icon')
+                    component.set(attr('roundIcon'), '@drawable/archohall_icon')
+                    component.set(attr('excludeFromRecents'), 'false')
+                    component.set(attr('autoRemoveFromRecents'), 'false')
         tree.write(manifest, encoding='unicode', xml_declaration=True)
     for p in PROJECT.rglob('AndroidManifest.xml'):
         text = re.sub(r'\s+package="[^"]+"', '', p.read_text(), count=1)

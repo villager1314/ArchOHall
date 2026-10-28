@@ -1,0 +1,75 @@
+name: Publish verified Android 0.06
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, fix/android-desktop-bridge]
+    paths: ['.github/workflows/release-android.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: release-android-006
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      SOURCE_SHA: 81e67eec69c47bc5689fa0a42a4652d1e64f87d8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Require the successful source build
+        run: |
+          test "$(gh api repos/$GH_REPO/actions/runs/40523515699 --jq .head_sha)" = "$SOURCE_SHA"
+          test "$(gh api repos/$GH_REPO/actions/runs/40523515699 --jq .conclusion)" = success
+      - name: Download the retained signed APK
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ArchOHall-0.06-arm64
+          run-id: 40523515699
+          github-token: ${{ github.token }}
+          path: release-assets
+      - name: Check checksum, metadata, certificate and native packaging
+        run: |
+          cd release-assets
+          echo 'e4310fa9a9c28b2ed26380729a6aa7bb8c7d5e9ce60265c2c709e427b2901484  ArchOHall-0.06-arm64.apk' | sha256sum -c -
+          sha256sum -c SHA256SUMS
+          signer=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          test -n "$signer"
+          "$signer" verify --verbose --print-certs ArchOHall-0.06-arm64.apk > certificate.txt
+          cat certificate.txt
+          grep -Fx 'Signer #1 certificate SHA-256 digest: 395043a9142654bea4cf43699c719dd77fd7276b4dc286f4399dfb273732de02' certificate.txt
+          python3 - <<'PY'
+          import json, sys, zipfile
+          from pathlib import Path
+          sys.path.insert(0, str(Path('..', 'android').resolve()))
+          from verify_x11_jni import verify_native_zip
+          with zipfile.ZipFile('ArchOHall-0.06-arm64.apk') as z:
+              embedded = json.loads(z.read('assets/runtime-manifest.json'))
+          assert embedded == json.loads(Path('runtime-manifest.json').read_text())
+          assert embedded['applicationId'] == 'com.archoh'
+          assert embedded['version'] == '0.06' and embedded['sources']['version_code'] == 8
+          verify_native_zip('ArchOHall-0.06-arm64.apk')
+          PY
+      - name: Create draft, upload verified assets, then publish prerelease
+        run: |
+          tag=android-0.06
+          if gh release view "$tag" --json isDraft > release-state.json 2>/dev/null; then
+            if test "$(python3 -c 'import json; print(json.load(open("release-state.json"))["isDraft"])')" = False; then
+              gh release download "$tag" --pattern 'ArchOHall-0.06-arm64.apk' --dir published-check
+              echo 'e4310fa9a9c28b2ed26380729a6aa7bb8c7d5e9ce60265c2c709e427b2901484  published-check/ArchOHall-0.06-arm64.apk' | sha256sum -c -
+              echo 'The matching prerelease is already published; keeping existing assets.'
+              exit 0
+            fi
+          else
+            gh release create "$tag" --target "$SOURCE_SHA" --title 'ArchOHall Android 0.06（实验版）' --notes-file docs/releases/android-0.06.md --draft --prerelease
+          fi
+          gh release upload "$tag" release-assets/ArchOHall-0.06-arm64.apk release-assets/SHA256SUMS release-assets/runtime-manifest.json --clobber
+          gh release edit "$tag" --draft=false --prerelease --latest=false
