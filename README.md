@@ -4,7 +4,7 @@
 
 # ArchOHall
 
-**在 Android 手机上运行 Arch Linux ARM 与 KDE Plasma Mobile，无需 root。**
+**在 Android 手机上运行 Arch Linux ARM 与 KDE Plasma Mobile，无需 root（尚未在root中测试过，请不要给这个应用root）。**
 
 [![Version](https://img.shields.io/badge/version-0.06-4961AC?style=for-the-badge)](https://github.com/villager1314/ArchOHall/releases/tag/android-0.06)
 [![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](#-设备要求)
