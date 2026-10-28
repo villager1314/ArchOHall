@@ -1,8 +1,18 @@
-name: Build and publish Android 0.07 with native multitasking
+name: Build native 0.07 rootfs and validate integration
 on:
   workflow_dispatch:
+    inputs:
+      build_apk:
+        description: 'Also compile APK on the runner (normally compiled locally)'
+        required: false
+        default: false
+        type: boolean
+      candidate_run_id:
+        description: 'Optional prior run with an unchanged native-007-candidate; reuse compilation only'
+        required: false
+        type: string
   push:
-    branches: [main, feature/native-007]
+    branches: [feature/native-007]
     paths: ['.github/workflows/android-007.yml', 'diagnostics/native007/**']
 permissions:
   contents: read
@@ -11,18 +21,51 @@ concurrency:
   group: android-007
   cancel-in-progress: false
 jobs:
+  bridge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Run real audio, D-Bus and PRoot tests unavailable in the local sandbox
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends curl unzip pulseaudio pulseaudio-utils libtalloc-dev
+          python3 -m pip install dbus-fast==5.0.22
+          bash android/test_proot.sh
   rootfs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with: {persist-credentials: false}
+      - name: Fetch an explicitly selected compiled candidate
+        if: github.event_name == 'workflow_dispatch' && inputs.candidate_run_id != ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: native-007-candidate
+          run-id: ${{ inputs.candidate_run_id }}
+          github-token: ${{ github.token }}
+          path: .native-candidate
       - name: Build matching rootfs and test stock mobile task switcher
         run: |
           sudo apt-get update
           sudo apt-get install -y curl gnupg xz-utils
           set -o pipefail
-          sudo --preserve-env=GITHUB_SHA bash scripts/build-rootfs.sh 2>&1 | tee native-build.log
+          if [[ -d .native-candidate ]]; then export ARCHOHALL_NATIVE_COMPONENT_DIR="$PWD/.native-candidate"; fi
+          sudo --preserve-env=GITHUB_SHA,ARCHOHALL_NATIVE_COMPONENT_DIR bash scripts/build-rootfs.sh 2>&1 | tee native-build.log
+      - name: Preserve compiled candidate even if runtime checks fail
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: native-007-candidate
+          path: |
+            dist/archohall-native-007-aarch64.tar.xz
+            dist/native-component.json
+            dist/kwin-native-upstream-source.tar.gz
+          if-no-files-found: ignore
+          compression-level: 0
+          retention-days: 30
       - name: Upload matched rootfs and native compositor
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -39,3 +82,85 @@ jobs:
             native-build.log
             .build/rootfs/native-results/
             .build/rootfs/build/native-output/CMakeFiles/CMakeConfigureLog.yaml
+
+  apk:
+    if: github.event_name == 'workflow_dispatch' && inputs.build_apk
+    needs: rootfs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Require retained signing configuration
+        env:
+          ARCHOHALL_SIGNING_BUNDLE: ${{ secrets.ARCHOHALL_SIGNING_BUNDLE }}
+        run: python3 android/sign_apk.py --check-config
+      - name: Use JDK 17
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME_17_X64/bin" >> "$GITHUB_PATH"
+      - name: Prepare Android SDK and package tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends curl gnupg zstd unzip pulseaudio pulseaudio-utils libtalloc-dev
+          bash android/install_sdk.sh
+      - name: Test desktop bridge
+        run: |
+          python3 -m pip install dbus-fast==5.0.22
+          bash android/test_proot.sh
+      - name: Compose pinned sources
+        run: python3 android/prepare_project.py
+      - name: Fetch matched native compositor from this rootfs build
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: archohall-rootfs-native-007
+          path: .android-build/compat-artifact
+      - name: Fetch retained and checksum-locked X11 donor
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ArchOHall-0.04-arm64
+          run-id: 40487016574
+          github-token: ${{ github.token }}
+          path: .android-build/x11-retained
+      - name: Build offline runtime
+        run: |
+          python3 android/build_runtime.py
+          python3 android/verify_runtime.py
+      - name: Test importer and build APK
+        working-directory: .android-build/project
+        run: |
+          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties
+          ./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace
+      - name: Verify X11 JNI interfaces and native APK packaging
+        run: python3 android/verify_x11_jni.py .android-build/downloads/x11.apk .android-build/project/app/build/outputs/apk/debug/app-debug.apk
+      - name: Sign with retained ArchOHall key
+        env:
+          ARCHOHALL_SIGNING_BUNDLE: ${{ secrets.ARCHOHALL_SIGNING_BUNDLE }}
+        run: python3 android/sign_apk.py .android-build/project/app/build/outputs/apk/debug/app-debug.apk dist/android/ArchOHall-0.07-arm64.apk
+      - name: Inspect APK and collect output
+        run: |
+          mkdir -p dist/android
+          python3 android/verify_x11_jni.py .android-build/downloads/x11.apk dist/android/ArchOHall-0.07-arm64.apk
+          cp .android-build/project/app/src/main/assets/runtime-manifest.json dist/android/
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/android/ArchOHall-0.07-arm64.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging dist/android/ArchOHall-0.07-arm64.apk
+          (cd dist/android && sha256sum *.apk > SHA256SUMS)
+      - name: Upload APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ArchOHall-0.07-arm64
+          path: dist/android/*
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: android-build-diagnostics
+          path: |
+            .android-build/project/app/build/reports/tests/
+            .android-build/project/app/build/test-results/
+            .android-build/project/app/build/screenshots/
+          if-no-files-found: ignore

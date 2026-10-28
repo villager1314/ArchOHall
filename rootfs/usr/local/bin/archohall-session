@@ -2,6 +2,8 @@
 set -euo pipefail
 export SHELL=/bin/bash
 export QT_QPA_PLATFORM=wayland
+# The compositor selects X11 EGL internally; Wayland clients must infer their own platform.
+unset EGL_PLATFORM
 export XDG_CURRENT_DESKTOP=KDE
 export XDG_SESSION_DESKTOP=KDE
 export XDG_MENU_PREFIX=plasma-
@@ -49,7 +51,7 @@ if command -v kscreen-doctor >/dev/null; then
 fi
 # Services launched over D-Bus must inherit the same audio and battery endpoints.
 if command -v dbus-update-activation-environment >/dev/null; then
-    activation=(SHELL PULSE_COOKIE PULSE_LATENCY_MSEC PULSE_SERVER XDG_CURRENT_DESKTOP XDG_MENU_PREFIX)
+    activation=(QT_QPA_PLATFORM WAYLAND_DISPLAY XDG_RUNTIME_DIR SHELL PULSE_COOKIE PULSE_LATENCY_MSEC PULSE_SERVER XDG_CURRENT_DESKTOP XDG_MENU_PREFIX)
     [[ -z ${DBUS_SYSTEM_BUS_ADDRESS:-} ]] || activation+=(DBUS_SYSTEM_BUS_ADDRESS)
     dbus-update-activation-environment "${activation[@]}" || true
 fi

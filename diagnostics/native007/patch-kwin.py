@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
 """Enable native KWin OpenGL effects on a DRM-less nested X11 server.
 
 The upstream effect/QML implementation is unmodified. Readback is confined to
@@ -24,6 +25,8 @@ change('src/core/gpumanager.cpp','''    m_udevMonitor->filterSubsystemDevType("d
     } else {
         qWarning("ARCHOHALL_UDEV_UNAVAILABLE: no GPU hotplug monitoring");
     }''')
+change('src/backends/x11/x11_windowed_backend.cpp', '    if (!m_hasDri) {', '    if (!m_hasDri && !(qEnvironmentVariableIsSet("ARCHOHALL_KWIN_SHM") && m_hasShm)) {')
+change('src/core/gpumanager.cpp', '    scanForRenderDevices();\n}\n\nGpuManager::~GpuManager', '    if (!qEnvironmentVariableIsSet("ARCHOHALL_KWIN_SHM")) {\n        scanForRenderDevices();\n    }\n}\n\nGpuManager::~GpuManager')
 change('src/backends/x11/x11_windowed_backend.cpp','''    if (m_hasDri) {
         xcb_dri3_open_cookie_t cookie''','''    if (m_hasDri && !qEnvironmentVariableIsSet("ARCHOHALL_KWIN_SHM")) {
         xcb_dri3_open_cookie_t cookie''')
@@ -105,4 +108,15 @@ change('src/backends/x11/x11_windowed_egl_backend.cpp','''    return m_backend->
         return {{DRM_FORMAT_XRGB8888, {DRM_FORMAT_MOD_LINEAR}}};
     }
     return m_backend->backend()->driFormats();''')
+change('src/backends/x11/x11_windowed_egl_backend.cpp','''void X11WindowedEglPrimaryLayer::releaseBuffers()
+{
+    m_buffer.reset();''','''void X11WindowedEglPrimaryLayer::releaseBuffers()
+{
+    (void)m_backend->openglContext()->makeCurrent();
+    m_shmBuffer.reset();
+    m_shmSwapchain.reset();
+    m_shmAllocator.reset();
+    m_readbackFramebuffer.reset();
+    m_readbackTexture.reset();
+    m_buffer.reset();''')
 print('Patched X11 software EGL readback; native KWin effects and shortcuts retained')

@@ -10,12 +10,12 @@ import java.util.zip.*;
 public final class GuestDesktopSupport {
     public static void install(Context c, OfflineRuntime.Monitor monitor) throws Exception {
         File root=new File(c.getFilesDir(),"containers/archohall");
-        if(!new File(root,".archohall-compat-004").isFile())GuestCompatibility.install(c,monitor);
+        if(!new File(root,".archohall-native-007").isFile())GuestCompatibility.install(c,monitor);
         deploy(c,monitor);
         monitor.phase("安装缺失的桌面组件",0,-1,"使用容器现有软件源；不自动升级 Qt/KDE");
         run(c,monitor,"/usr/local/bin/archohall-install-extras");
         run(c,monitor,"/usr/local/bin/archohall-configure");
-        Files.write(new File(root,".archohall-support-006").toPath(),new byte[]{'1'});
+        Files.write(new File(root,".archohall-support-007").toPath(),new byte[]{'1'});
     }
     public static void deploy(Context c, OfflineRuntime.Monitor monitor) throws Exception {
         File root=new File(c.getFilesDir(),"containers/archohall");
@@ -32,7 +32,7 @@ public final class GuestDesktopSupport {
                 File target=new File(root,name);
                 if(!target.getCanonicalPath().startsWith(base))throw new IOException("桌面支持路径越界");
                 File parent=target.getParentFile();if(!parent.mkdirs()&&!parent.isDirectory())throw new IOException("无法创建桌面支持目录");
-                if(target.exists()&&!new File(target.getPath()+".before-support-006").exists())Files.copy(target.toPath(),new File(target.getPath()+".before-support-006").toPath());
+                if(target.exists()&&!new File(target.getPath()+".before-support-007").exists())Files.copy(target.toPath(),new File(target.getPath()+".before-support-007").toPath());
                 File temp=File.createTempFile(".support-",".tmp",parent);
                 try{
                     try(OutputStream out=new FileOutputStream(temp)){byte[] b=new byte[65536];int n;while((n=zip.read(b))!=-1){total+=n;if(total>8388608)throw new IOException("桌面支持文件过大");out.write(b,0,n);}}

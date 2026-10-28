@@ -149,6 +149,8 @@ esac
                 self.assertTrue(all(n.startswith('usr/local/') and '..' not in n for n in names))
                 self.assertFalse(any('probe' in n for n in names))
                 self.assertIn('usr/local/bin/archohall-keyboard',names)
+                self.assertNotIn('usr/local/bin/archohall-task-switcher', names)
+                self.assertNotIn('usr/local/share/archohall/TaskSwitcher.qml', names)
                 self.assertIn('usr/local/share/archohall/quicksettings/org.kde.plasma.quicksetting.battery/contents/ui/main.qml',names)
                 self.assertNotIn('usr/local/share/archohall/quicksettings/org.kde.plasma.quicksetting.settingsapp/metadata.json',names)
 
@@ -165,15 +167,20 @@ class ConfigurationTests(unittest.TestCase):
             for name,content in {'etc/pacman.conf':'[options]\nDownloadUser = alpm\n[core]\nServer = example\n',
                                  'etc/sudoers':'root ALL=(ALL:ALL) ALL\n',
                                  'usr/bin/sudo':'binary placeholder',
+                                 'home/arch/.config/kwinrc':'[Plugins]\nblurEnabled=false\nmobiletaskswitcherEnabled=false\n[Other]\nx=1\n',
                                  'home/arch/.config/plasmakeyboardrc':'[General]\nenabledLocales=fr_FR,en_US\n',
                                  'run/archohall-host/audio.env':'PULSE_SERVER=tcp:127.0.0.1:47130\n'}.items():
                 p=root/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(content)
+            (root/'usr/local/bin').mkdir(parents=True)
+            (root/'usr/local/bin/archohall-task-switcher').write_text('Task-panel shortcut receiver')
             (root/'usr/bin/sudo').chmod(0o755)
             module.configure(root,validate_sudo=False)
             first={p.relative_to(root):p.read_bytes() for p in root.rglob('*') if p.is_file()}
             module.configure(root,validate_sudo=False)
             second={p.relative_to(root):p.read_bytes() for p in root.rglob('*') if p.is_file()}
             self.assertEqual(first,second)
+            self.assertFalse((root/'usr/local/bin/archohall-task-switcher').exists())
+            self.assertIn('mobiletaskswitcherEnabled=true', (root/'home/arch/.config/kwinrc').read_text())
             self.assertEqual((root/'usr/bin/sudo').stat().st_mode & 0o4777,0o4755)
             self.assertIn('NOPASSWD', (root/'etc/sudoers').read_text())
             self.assertIn('DisableSandbox', (root/'etc/pacman.conf').read_text())

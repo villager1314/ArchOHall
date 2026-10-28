@@ -1,4 +1,4 @@
-name: Build ArchOHall Android 0.06
+name: Legacy Android 0.06 build (use Android 0.07 workflow)
 on:
   workflow_dispatch:
 permissions:
@@ -15,6 +15,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
+      - name: Require the historical 0.06 source revision
+        run: python3 -c 'import json; assert json.load(open("android/source-lock.json"))["version_name"] == "0.06", "Use android-007.yml for 0.07 APK and matching rootfs"'
       - name: Require retained signing configuration
         env:
           ARCHOHALL_SIGNING_BUNDLE: ${{ secrets.ARCHOHALL_SIGNING_BUNDLE }}

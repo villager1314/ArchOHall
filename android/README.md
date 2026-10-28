@@ -1,3 +1,17 @@
+# ArchOHall Android 0.07
+
+0.07 使用 Plasma Mobile 原生任务切换器，移除 0.06 临时窗口列表。APK 与同页配套 rootfs 共享原生 KWin 组件和依赖清单。
+
+下载 [0.07 Release](https://github.com/villager1314/ArchOHall/releases/tag/android-0.07)。最低 Android 8.0、ARM64，包名 `com.archoh`、versionCode 9，沿用固定签名。
+
+首次使用选择同一页面的 APK 与 rootfs。已有容器先停止桌面、覆盖安装 APK，再执行“应用桌面修复与 Android 桥接”。若组件版本不匹配，先备份/迁移个人文件，再导入配套镜像；不进行自动 Qt/KDE 部分升级。
+
+详见 [0.07 实现与迁移](../diagnostics/ANDROID-007.md)、[发布说明](../docs/releases/android-0.07.md) 和 [构建流水线](../.github/workflows/android-007.yml)。
+
+下方保存 0.06 的使用范围作为旧版参考，其中的版本、校验值与回退后缀只对应 0.06；0.07 以以上说明和随包清单为准。
+
+---
+
 # ArchOHall Android 0.06
 
 ARM64 Android 实验版，包名 `com.archoh`，最低 Android 8.0。APK 集成 Termux、PRoot 与 Termux:X11，无需另外安装宿主应用。

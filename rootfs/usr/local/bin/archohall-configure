@@ -13,7 +13,7 @@ def save(path, text, mode=None):
     if path.exists() and path.read_text() == text:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
-    backup = Path(str(path) + '.before-config-006')
+    backup = Path(str(path) + '.before-config-007')
     if path.exists() and not backup.exists():
         shutil.copy2(path, backup)
     with tempfile.NamedTemporaryFile(mode='w', dir=path.parent, delete=False) as f:
@@ -52,7 +52,7 @@ def configure(root=Path('/'), validate_sudo=True):
         save(sudoers, text, 0o440)
         # SafeTar strips set-id bits on import. Restore this one known executable
         # for PRoot's setuid emulation; never chown Android files to real root.
-        mode_backup = root / 'usr/local/share/archohall/sudo-mode-before-006'
+        mode_backup = root / 'usr/local/share/archohall/sudo-mode-before-007'
         if not mode_backup.exists():
             save(mode_backup, oct(stat.S_IMODE(sudo.stat().st_mode)) + '\n')
         sudo.chmod(stat.S_IMODE(sudo.stat().st_mode) | stat.S_ISUID)
@@ -82,6 +82,28 @@ def configure(root=Path('/'), validate_sudo=True):
             text += '\n[General]\n'
         text = text.replace('[General]', '[General]\n' + key + '=' + value, 1)
     save(config, text)
+
+    # Enable the upstream effect; no replacement DBus owner or alternative UI.
+    kwinrc = root / 'home/arch/.config/kwinrc'
+    text = kwinrc.read_text() if kwinrc.exists() else ''
+    section = re.search(r'(?ms)^\[Plugins\]\n(.*?)(?=^\[|\Z)', text)
+    if section:
+        values = section.group(1)
+        values = re.sub(r'^mobiletaskswitcherEnabled=.*\n?', '', values, flags=re.M)
+        text = text[:section.start(1)] + 'mobiletaskswitcherEnabled=true\n' + values + text[section.end(1):]
+    else:
+        text = text.rstrip() + '\n\n[Plugins]\nmobiletaskswitcherEnabled=true\n'
+    save(kwinrc, text)
+    retired = [('usr/local/bin/archohall-task-switcher', 'Task-panel shortcut receiver'),
+               ('usr/local/share/archohall/TaskSwitcher.qml', 'ArchOHall 多任务')]
+    for relative, signature in retired:
+        path = root / relative
+        if path.is_file() and signature in path.read_text(errors='replace'):
+            backup = Path(str(path) + '.before-native-007')
+            if not backup.exists():
+                path.rename(backup)
+            else:
+                path.unlink()
 
     routes = {'settingsapp': '/usr/local/bin/archohall-open-settings',
               'keyboardtoggle': '/usr/local/bin/archohall-open-settings kcm_virtualkeyboard'}

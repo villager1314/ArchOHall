@@ -37,12 +37,11 @@ export ARCHOHALL_GUEST_PULSE_SERVER=''
 umask 077
 head -c 256 /dev/urandom > "$TASK_DIR/pulse-cookie"
 export PULSE_COOKIE="$TASK_DIR/pulse-cookie"
-pulse_tcp_module=''
 if pactl info >/dev/null 2>&1; then
     for port in {47130..47140}; do
-        if pulse_tcp_module=$(pactl load-module module-native-protocol-tcp \
+        if pactl load-module module-native-protocol-tcp \
             listen=127.0.0.1 port="$port" auth-anonymous=0 \
-            auth-cookie-enabled=1 auth-cookie="$PULSE_COOKIE" 2>>"$TASK_DIR/audio.log"); then
+            auth-cookie-enabled=1 auth-cookie="$PULSE_COOKIE" >>"$TASK_DIR/audio.log" 2>&1; then
             export ARCHOHALL_GUEST_PULSE_SERVER="tcp:127.0.0.1:$port"
             break
         fi

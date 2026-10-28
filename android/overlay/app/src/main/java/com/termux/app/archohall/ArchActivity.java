@@ -38,7 +38,7 @@ public final class ArchActivity extends AppCompatActivity {
         MaterialToolbar toolbar=new MaterialToolbar(this);toolbar.setTitle("ArchOHall");toolbar.setSubtitle("你的掌上 Linux 工作空间");page.addView(toolbar,new LinearLayout.LayoutParams(-1,dp(80)));
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);page.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout content=new LinearLayout(this);content.setOrientation(1);content.setPadding(dp(20),dp(8),dp(20),dp(28));scroll.addView(content);
-        LinearLayout badges=new LinearLayout(this);Chip version=new Chip(this);version.setText("0.06 · ARM64");version.setCheckable(false);badges.addView(version);Chip offline=new Chip(this);offline.setText("离线导入");offline.setCheckable(false);badges.addView(offline);content.addView(badges);
+        LinearLayout badges=new LinearLayout(this);Chip version=new Chip(this);version.setText("0.07 · ARM64");version.setCheckable(false);badges.addView(version);Chip offline=new Chip(this);offline.setText("离线导入");offline.setCheckable(false);badges.addView(offline);content.addView(badges);
         LinearLayout overview=card(content);text(overview,"Arch + Plasma Mobile",26);text(overview,"选择已经下载的 ArchOHall 导入包，展开后即可尝试启动桌面。",15);
         status=text(overview,"正在检查运行环境",14);
         LinearLayout controls=card(content);text(controls,"容器",20);
@@ -53,8 +53,8 @@ public final class ArchActivity extends AppCompatActivity {
         button(controls,"显示设置",v->startActivity(new Intent(this,com.termux.x11.LoriePreferences.class)));
         supportButton=button(controls,"应用桌面修复与 Android 桥接",v->ImportService.start(this,ImportService.SUPPORT,null));
         text(controls,"备份启动脚本，连接 Android 快捷控制，并联网补齐键盘、截图及录屏组件。保留当前容器。",13);
-        compatButton=button(controls,"安装软件兼容组件",v->ImportService.start(this,ImportService.COMPAT,null));
-        text(controls,"桌面启动崩溃时可尝试软件兼容模式。原启动脚本会备份，部分桌面功能暂不可用。",13);
+        compatButton=button(controls,"安装原生多任务组件",v->ImportService.start(this,ImportService.COMPAT,null));
+        text(controls,"检查组件版本并安装原生 OpenGL 多任务支持；不匹配时请使用 0.07 配套镜像。",13);
         LinearLayout permissions=card(content);text(permissions,"权限与文件",20);
         button(permissions,"共享存储访问",v->{try{HostPermissions.requestStorage(this);}catch(Exception e){error(e);}});
         button(permissions,"通知设置",v->{try{HostPermissions.notificationSettings(this);}catch(Exception e){error(e);}});
@@ -69,7 +69,7 @@ public final class ArchActivity extends AppCompatActivity {
         button(logging,"查看桌面日志",v->{File log=new File(getFilesDir(),"home/.archohall/session.log");try{String s=log.isFile()?new String(java.nio.file.Files.readAllBytes(log.toPath()),java.nio.charset.StandardCharsets.UTF_8):"尚无桌面日志";if(s.length()>30000)s=s.substring(s.length()-30000);new MaterialAlertDialogBuilder(this).setTitle("桌面日志（末尾）").setMessage(s).setPositiveButton("关闭",null).show();}catch(Exception e){error(e);}});
         text(content,"首次先使用软件渲染验证桌面。此版本为实验版，GPU 加速与安卓系统控制将在后续适配。",13);
         setContentView(page);
-        if(!supported()){state.phase="设备架构不支持";state.detail="0.06 需要 ARM64 安卓设备";}
+        if(!supported()){state.phase="设备架构不支持";state.detail="0.07 需要 ARM64 安卓设备";}
         else if(!state.runtimeReady&&!state.busy)ImportService.start(this,ImportService.PREPARE,null);
     }
     private LinearLayout card(LinearLayout parent){MaterialCardView card=new MaterialCardView(this);card.setRadius(dp(24));card.setCardElevation(0);card.setStrokeWidth(dp(1));LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-1,-2);params.topMargin=dp(16);parent.addView(card,params);LinearLayout body=new LinearLayout(this);body.setOrientation(1);body.setPadding(dp(20),dp(16),dp(20),dp(16));card.addView(body);return body;}

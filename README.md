@@ -6,12 +6,12 @@
 
 **在 Android 手机上运行 Arch Linux ARM 与 KDE Plasma Mobile，无需 root。**
 
-[![Version](https://img.shields.io/badge/version-0.06-4961AC?style=for-the-badge)](https://github.com/villager1314/ArchOHall/releases/tag/android-0.06)
+[![Version](https://img.shields.io/badge/version-0.07-4961AC?style=for-the-badge)](https://github.com/villager1314/ArchOHall/releases/tag/android-0.07)
 [![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](#-设备要求)
 [![Architecture](https://img.shields.io/badge/architecture-ARM64-1793D1?style=for-the-badge&logo=archlinux&logoColor=white)](#-工作原理)
 [![License](https://img.shields.io/badge/license-MIT_%2F_GPL--3.0-4961AC?style=for-the-badge)](#-许可证)
 
-[下载 APK](https://github.com/villager1314/ArchOHall/releases/tag/android-0.06) · [快速开始](#-快速开始) · [已知限制](#-当前状态与已知限制) · [反馈问题](https://github.com/villager1314/ArchOHall/issues)
+[下载 APK](https://github.com/villager1314/ArchOHall/releases/tag/android-0.07) · [快速开始](#-快速开始) · [已知限制](#-当前状态与已知限制) · [反馈问题](https://github.com/villager1314/ArchOHall/issues)
 
 </div>
 
@@ -34,13 +34,13 @@ APK 内置宿主运行环境，Arch Linux 桌面镜像单独导入。运行时�
 
 | 内容 | 下载入口 | 说明 |
 | --- | --- | --- |
-| Android 0.06 APK | [0.06 实验版 Release](https://github.com/villager1314/ArchOHall/releases/tag/android-0.06) | 下载并安装 `ArchOHall-0.06-arm64.apk` |
-| ArchOHall 桌面镜像 | [rootfs 构建记录](https://github.com/villager1314/ArchOHall/actions/workflows/rootfs.yml) | 从成功构建的 Artifacts 下载镜像包，核对构建说明与兼容要求 |
-| 后续 APK 构建 | [Android 构建记录](https://github.com/villager1314/ArchOHall/actions/workflows/android.yml) | 可查看测试结果、版本和构建产物 |
+| Android 0.07 APK | [0.07 实验版 Release](https://github.com/villager1314/ArchOHall/releases/tag/android-0.07) | 下载并安装 `ArchOHall-0.07-arm64.apk` |
+| 配套 ARM64 rootfs | [0.07 同页下载](https://github.com/villager1314/ArchOHall/releases/tag/android-0.07) | 下载 `archohall-aarch64.tar.xz`；分卷需校验并合并 |
+| 后续 APK 构建 | [Android 构建记录](https://github.com/villager1314/ArchOHall/actions/workflows/android-007.yml) | 可查看测试结果、版本和构建产物 |
 
-APK 通过 GitHub Release 提供直接下载，并附带校验和与运行环境清单。Actions 保留构建日志和限期产物；下载 Actions 产物通常需要登录 GitHub。0.06 为实验性预发行版，已验证 APK 的构建源码固定在 [`81e67ee`](https://github.com/villager1314/ArchOHall/commit/81e67eec69c47bc5689fa0a42a4652d1e64f87d8)。
+APK 通过 GitHub Release 提供直接下载，并附带校验和与运行环境清单。Actions 保留构建日志和限期产物；下载 Actions 产物通常需要登录 GitHub。0.07 为实验性预发行版，APK 与配套 rootfs 由同一流水线构建，并发布组件版本清单。
 
-**0.06 升级只需要新 APK，继续使用现有容器。** 新安装则需要另行准备与当前兼容组件匹配的 ArchOHall 镜像；任意滚动构建的 Qt/KDE 版本未必兼容。
+**首次使用请选择同一 0.07 Release 的 APK 和 rootfs。** 旧容器版本检查通过后可就地更新；不匹配时先备份/迁移个人文件，再导入配套镜像，避免混装 Qt/KDE 组件。
 
 ## 🚀 快速开始
 
@@ -73,40 +73,40 @@ APK 通过 GitHub Release 提供直接下载，并附带校验和与运行环境
 
 PRoot 在 Android 应用权限内提供 Linux 文件系统与模拟用户身份，运行 Arch Linux ARM 的程序。容器内使用 KWin Wayland 和 Plasma Mobile，KWin 的嵌套 X11 后端将画面输出到应用集成的 Termux:X11。
 
-当前兼容方案由 **KWin QPainter** 负责合成，**Plasma 与虚拟键盘使用 Mesa llvmpipe OpenGL**。音频经 Android 宿主的 PulseAudio 输出；Android 状态与控制通过应用私有桥接传递。
+0.07 的 **KWin、Plasma 与虚拟键盘均使用 Mesa llvmpipe OpenGL**。KWin 通过共享内存读回向 X11 输出，保留原生多任务 effect 所需的 OpenGL 合成。音频经 Android 宿主的 PulseAudio 输出；Android 状态与控制通过应用私有桥接传递。
 
-容器普通用户为 `arch`。0.06 桌面修复会配置容器内的免密 `sudo`，用于 PRoot 模拟 root；Android 应用仍保持普通应用权限。当前会话独立于 systemd 用户服务和 SDDM，部分依赖完整系统服务的 Linux 功能不可用。
+容器普通用户为 `arch`。0.07 桌面修复会配置容器内的免密 `sudo`，用于 PRoot 模拟 root；Android 应用仍保持普通应用权限。当前会话独立于 systemd 用户服务和 SDDM，部分依赖完整系统服务的 Linux 功能不可用。
 
 ## 🧪 当前状态与已知限制
 
-Plasma Mobile 已在 ARM64 手机上启动，软件渲染、缩放和应用列表经过排查。0.06 已通过桥接测试、Android 单元测试、APK 构建、固定签名及 X11 原生接口检查；新增交互仍需实机验证。
+Plasma Mobile 已在 ARM64 手机上启动，软件渲染、缩放和应用列表经过排查。发布流程检查原生任务切换、桥接、Android、固定签名和 X11 原生接口；Android 上的触摸、性能与设备行为仍需实机验证。
 
 | 项目 | 当前状态 |
 | --- | --- |
 | 声音、亮度与音量 | 已加入音频传输修复和 Linux 内部滑块；实际扬声器输出、设备路由与交互效果待验证。亮度调节作用于桌面窗口 |
 | 剪贴板 | 已加入 Linux → Android 的文字同步通道；端到端效果待验证，暂未实现图片、文件及历史记录同步 |
 | Wi-Fi、蓝牙等设置 | 通过 Android 系统设置入口管理；设备和厂商系统可能影响跳转行为 |
-| 多任务界面 | 0.06 使用临时窗口列表；后续优先恢复 Plasma Mobile 原生任务切换器 |
+| 多任务界面 | 0.07 使用 Plasma Mobile 原生任务切换器，删除临时窗口列表；原生快捷键与 OpenGL 合成共同提供支持 |
 | 虚拟键盘 | 提供输入法组件与语言默认配置；完整终端功能键布局仍待完善 |
 | GPU 加速 | 当前以软件渲染为兼容基线，Turnip、VirGL 等加速路径尚未作为已验证功能提供 |
 
 需要密码、Polkit、设备节点或 systemd 服务的设置页，可能无法在 PRoot 中正常工作。暂未内置 Discover 应用商店。不要单独升级 Qt/KDE 库；整体升级也可能破坏当前兼容环境，应先备份并核对兼容要求。
 
-实现范围、备份与验证记录见 [0.06 修复说明](diagnostics/ANDROID-006.md)。
+实现范围、备份与验证记录见 [0.07 实现与迁移说明](diagnostics/ANDROID-007.md)。
 
 ## 🛠️ 从源码构建
 
-推荐使用仓库的 [Android 构建工作流](.github/workflows/android.yml)。开发源码可通过以下方式获取；复现已发布 APK 时，请使用下方注明的原构建提交：
+推荐使用仓库的 [0.07 构建工作流](.github/workflows/android-007.yml)。开发源码可通过以下方式获取；复现已发布 APK 时，请使用下方注明的原构建提交：
 
 ```bash
 git clone https://github.com/villager1314/ArchOHall.git
 cd ArchOHall
-# 已发布 APK 的原构建源码：git checkout 81e67eec69c47bc5689fa0a42a4652d1e64f87d8
+# 复现发布版本：git checkout android-0.07
 ```
 
 构建使用 Python 3、JDK 17 和 Android SDK 36。工作流会组合锁定的 Termux / Termux:X11 源码、校验离线运行包与兼容组件，执行测试，再使用配置好的固定密钥签名。
 
-正式分发构建要求配置 `ARCHOHALL_SIGNING_BUNDLE` Secret；缺少配置会停止构建，不会改用临时签名。详细步骤与签名要求见 [Android 构建说明](android/README.md)。rootfs 镜像有独立的手动构建工作流，0.06 APK 升级无需重建镜像。
+正式分发构建要求配置 `ARCHOHALL_SIGNING_BUNDLE` Secret；缺少配置会停止构建，不会改用临时签名。详细步骤与签名要求见 [Android 构建说明](android/README.md)。0.07 的 APK 与 rootfs 使用同一流水线，分别完成检查后一起发布。
 
 <details>
 <summary>项目目录</summary>

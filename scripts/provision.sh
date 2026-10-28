@@ -25,7 +25,7 @@ if ! id arch >/dev/null 2>&1; then
     useradd -m -u 1000 -s /bin/bash arch
 fi
 usermod -aG wheel arch
-# No default passwords, SSH daemon, or passwordless sudo in the image.
+# Accounts remain locked; the managed container initializer configures simulated sudo.
 passwd -l root
 passwd -l arch
 chmod 755 /usr/local/bin/archohall-*

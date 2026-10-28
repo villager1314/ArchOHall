@@ -1,0 +1,99 @@
+name: Publish verified Android and rootfs 0.07
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/release-007.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: release-android-007
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      SOURCE_RUN_ID: '0'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Require the successful paired build and matching sources
+        run: |
+          test "$SOURCE_RUN_ID" -gt 0
+          test "$(gh api repos/$GH_REPO/actions/runs/$SOURCE_RUN_ID --jq .conclusion)" = success
+          source_sha=$(gh api repos/$GH_REPO/actions/runs/$SOURCE_RUN_ID --jq .head_sha)
+          printf 'SOURCE_SHA=%s\n' "$source_sha" >> "$GITHUB_ENV"
+          gh api "repos/$GH_REPO/compare/$source_sha...$GITHUB_SHA" > comparison.json
+          python3 - <<'PY'
+          import json
+          data=json.load(open('comparison.json'))
+          assert data['status'] in ('ahead','identical') and len(data['files']) < 300
+          for f in data['files']:
+              p=f['filename']
+              assert p=='.github/workflows/release-007.yml' or p=='README.md' or p.startswith('docs/'), p
+          PY
+      - name: Download the matching rootfs and compositor
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: archohall-rootfs-native-007
+          run-id: ${{ env.SOURCE_RUN_ID }}
+          github-token: ${{ github.token }}
+          path: rootfs-assets
+      - name: Download the signed APK from the same build
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ArchOHall-0.07-arm64
+          run-id: ${{ env.SOURCE_RUN_ID }}
+          github-token: ${{ github.token }}
+          path: apk-assets
+      - name: Verify every checksum and match the native component
+        run: |
+          (cd rootfs-assets && sha256sum -c SHA256SUMS)
+          (cd apk-assets && sha256sum -c SHA256SUMS)
+          python3 - <<'PY'
+          import hashlib,json,os,zipfile
+          from pathlib import Path
+          native=json.loads(Path('rootfs-assets/native-component.json').read_text())
+          assert native['version']=='0.07'
+          assert hashlib.sha256(Path('rootfs-assets/archohall-native-007-aarch64.tar.xz').read_bytes()).hexdigest()==native['sha256']
+          with zipfile.ZipFile('apk-assets/ArchOHall-0.07-arm64.apk') as z:
+              runtime=json.loads(z.read('assets/runtime-manifest.json'))
+              component=json.loads(z.read('assets/native-component.json'))
+              assert hashlib.sha256(z.read('assets/desktop-compat.tar.xz')).hexdigest()==native['sha256']
+          assert component==native==runtime['desktopCompatibility']
+          assert runtime['version']=='0.07' and runtime['sources']['version_code']==9
+          assert runtime['projectCommit']==os.environ['SOURCE_SHA']
+          assert 'commit='+os.environ['SOURCE_SHA'] in Path('rootfs-assets/build-info.txt').read_text()
+          assert Path('rootfs-assets/native-results/PASS').is_file()
+          PY
+          signer=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          "$signer" verify --verbose --print-certs apk-assets/ArchOHall-0.07-arm64.apk > certificate.txt
+          python3 - <<'PY'
+          import re
+          text=open('certificate.txt').read()
+          assert set(re.findall(r'^.*certificate SHA-256 digest: ([0-9a-f]{64})$',text,re.M))=={'395043a9142654bea4cf43699c719dd77fd7276b4dc286f4399dfb273732de02'}
+          assert 'Number of signers: 1' in text
+          PY
+      - name: Publish paired experimental release after all verification
+        run: |
+          tag=android-0.07
+          if gh release view "$tag" --json isDraft > state.json 2>/dev/null; then
+            test "$(python3 -c 'import json; print(json.load(open("state.json"))["isDraft"])')" = True || { echo 'Published release exists; refusing to replace assets'; exit 1; }
+          else
+            gh release create "$tag" --target "$GITHUB_SHA" --title 'ArchOHall 0.07 — 原生多任务与配套 rootfs（实验版）' --notes-file docs/releases/android-0.07.md --draft --prerelease
+          fi
+          cp rootfs-assets/SHA256SUMS rootfs-assets/rootfs-SHA256SUMS
+          cp apk-assets/SHA256SUMS apk-assets/APK-SHA256SUMS
+          assets=(apk-assets/ArchOHall-0.07-arm64.apk apk-assets/APK-SHA256SUMS apk-assets/runtime-manifest.json)
+          while IFS= read -r -d '' file; do
+            [[ ${file##*/} == SHA256SUMS ]] || assets+=("$file")
+          done < <(find rootfs-assets -maxdepth 1 -type f -print0)
+          gh release upload "$tag" "${assets[@]}" --clobber
+          gh release edit "$tag" --draft=false --prerelease --latest=false

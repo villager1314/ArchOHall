@@ -1,11 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 prefix=/opt/archohall-kwin-compat
+if [[ -f $prefix/native-component.json ]]; then
+    python3 - "$prefix/native-component.json" <<'PYGUARD'
+import json,sys
+from pathlib import Path
+meta=json.loads(Path(sys.argv[1]).read_text())
+for name,expected in meta['packages'].items():
+    actual=[]
+    for record in Path('/var/lib/pacman/local').glob(name+'-*/desc'):
+        rows=record.read_text().splitlines()
+        values={rows[i]:rows[i+1] for i in range(len(rows)-1) if rows[i].startswith('%')}
+        if values.get('%NAME%')==name:
+            actual.append(values.get('%VERSION%'))
+    if actual != [expected]:
+        raise SystemExit(f'Native compositor dependency mismatch: {name} {actual}; expected {expected}. Use the matching 0.07 rootfs.')
+PYGUARD
+fi
 export LD_LIBRARY_PATH="$prefix/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export QT_PLUGIN_PATH="$prefix/lib/qt6/plugins"
 export QML_IMPORT_PATH="$prefix/lib/qt6/qml"
 export XDG_DATA_DIRS="$prefix/share:/usr/local/share:/usr/share"
 unset QT_QUICK_BACKEND
 export KWIN_COMPOSE=O2 LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe QSG_RHI_BACKEND=opengl
-export KWIN_DISABLE_VULKAN=1 ARCHOHALL_KWIN_SHM=1
+export KWIN_DISABLE_VULKAN=1 ARCHOHALL_KWIN_SHM=1 QT_LOGGING_TO_CONSOLE=1
 exec "$prefix/bin/kwin_wayland" "$@"

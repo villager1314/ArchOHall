@@ -49,7 +49,7 @@ def main():
         directory = DEST / plugin
         ui = directory / 'contents/ui'
         ui.mkdir(parents=True, exist_ok=True)
-        (directory/'metadata.json').write_text(json.dumps({'KPackageStructure':'KPackage/GenericQML', 'KPlugin':{'Id':plugin,'Name':title,'Description':'ArchOHall Android host bridge','Icon':icon,'License':'GPL-3.0-or-later','Version':'0.06'}}, ensure_ascii=False,indent=2)+'\n')
+        (directory/'metadata.json').write_text(json.dumps({'KPackageStructure':'KPackage/GenericQML', 'KPlugin':{'Id':plugin,'Name':title,'Description':'ArchOHall Android host bridge','Icon':icon,'License':'GPL-3.0-or-later','Version':'0.07'}}, ensure_ascii=False,indent=2)+'\n')
         (ui/'bridge.js').write_text(JS)
         (ui/'main.qml').write_text(f'''// SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
@@ -120,7 +120,7 @@ ApplicationWindow {{
     for key,title,icon in [('screenshot','屏幕截图','view-fullscreen-symbolic'),('record','录制 Linux 桌面','camera-video-symbolic')]:
         plugin='org.kde.plasma.quicksetting.'+key
         directory=DEST/plugin;ui=directory/'contents/ui';ui.mkdir(parents=True,exist_ok=True)
-        (directory/'metadata.json').write_text(json.dumps({'KPackageStructure':'KPackage/GenericQML','KPlugin':{'Id':plugin,'Name':title,'Description':'Linux X11 capture; no Android display access','Icon':icon,'License':'GPL-3.0-or-later','Version':'0.06'}},ensure_ascii=False,indent=2)+'\n')
+        (directory/'metadata.json').write_text(json.dumps({'KPackageStructure':'KPackage/GenericQML','KPlugin':{'Id':plugin,'Name':title,'Description':'Linux X11 capture; no Android display access','Icon':icon,'License':'GPL-3.0-or-later','Version':'0.07'}},ensure_ascii=False,indent=2)+'\n')
         command='screenshot' if key=='screenshot' else 'toggle'
         (ui/'main.qml').write_text(f'''// SPDX-License-Identifier: GPL-3.0-or-later
 import org.kde.plasma.private.mobileshell.quicksettingsplugin as QS

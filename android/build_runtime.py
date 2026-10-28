@@ -5,6 +5,7 @@ import gzip
 import hashlib
 import io
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
 import subprocess
@@ -277,13 +278,18 @@ exec /system/bin/app_process /system/bin --nice-name=archohall-relocate com.term
     x11_jni = PROJECT/'lorie/src/main/jniLibs/arm64-v8a'
     x11_jni.mkdir(parents=True, exist_ok=True)
     (x11_jni/'libXlorie.so').write_bytes(native)
-    manifest = {'applicationId': 'com.archoh', 'version':LOCK['version_name'], 'bootstrapBytes':output.stat().st_size, 'expandedBytes':sum(len(b) for b,m in files.values()), 'bootstrapSha256':hashlib.sha256(output.read_bytes()).hexdigest(), 'packages':{name:packages[name]['Version'] for name in sorted(wanted)}, 'sources':LOCK, 'termuxApkSha256':expected}
-    candidates = list((WORK/'compat-artifact').rglob('archohall-kwin-compat-6.7.5-aarch64.tar.xz'))
-    if len(candidates) != 1:
-        raise RuntimeError('Expected exactly one locked desktop compatibility archive')
+    manifest = {'projectCommit':os.environ.get('GITHUB_SHA', 'local'), 'applicationId': 'com.archoh', 'version':LOCK['version_name'], 'bootstrapBytes':output.stat().st_size, 'expandedBytes':sum(len(b) for b,m in files.values()), 'bootstrapSha256':hashlib.sha256(output.read_bytes()).hexdigest(), 'packages':{name:packages[name]['Version'] for name in sorted(wanted)}, 'sources':LOCK, 'termuxApkSha256':expected}
+    candidates = list((WORK/'compat-artifact').rglob('archohall-native-007-aarch64.tar.xz'))
+    metadata_files = list((WORK/'compat-artifact').rglob('native-component.json'))
+    if len(candidates) != 1 or len(metadata_files) != 1:
+        raise RuntimeError('Expected one matched native compositor and manifest from the rootfs build')
+    native_metadata = json.loads(metadata_files[0].read_text())
+    if native_metadata['kwinSource'] != LOCK['native_kwin_source'] or native_metadata['version'] != '0.07':
+        raise RuntimeError('Native compositor source/version mismatch')
     compat = candidates[0].read_bytes()
-    if hashlib.sha256(compat).hexdigest() != LOCK['compat_sha256']:
-        raise RuntimeError('Desktop compatibility archive checksum mismatch')
+    if hashlib.sha256(compat).hexdigest() != native_metadata['sha256']:
+        raise RuntimeError('Native compositor checksum mismatch')
+    (assets/'native-component.json').write_text(json.dumps(native_metadata, indent=2))
     (assets/'desktop-compat.tar.xz').write_bytes(compat)
     (assets/'compat-install').write_bytes((REPO/'android/desktop-compat-install.sh').read_bytes())
     mobile = (REPO/'rootfs/usr/local/bin/archohall-mobile').read_text()
@@ -293,7 +299,7 @@ exec /system/bin/app_process /system/bin --nice-name=archohall-relocate com.term
     from build_desktop_support import build as build_desktop_support
     build_desktop_support(assets/'desktop-support.zip')
     (assets/'host-audio.sh').write_bytes((REPO/'android/host-bridge/host-audio.sh').read_bytes())
-    manifest['desktopCompatibility'] = {'kwin': '6.7.5', 'renderer': 'QPainter', 'sha256': LOCK['compat_sha256'], 'ciRun': LOCK['compat_run_id']}
+    manifest['desktopCompatibility'] = native_metadata
     (assets/'runtime-manifest.json').write_text(json.dumps(manifest, indent=2))
     print('Offline runtime:', len(wanted), 'packages,', output.stat().st_size, 'bytes')
 

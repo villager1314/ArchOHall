@@ -52,26 +52,39 @@ chroot "$root" /usr/bin/env QT_QPA_PLATFORM=offscreen /bin/bash /tmp/archohall-p
 # Build and validate a matching compositor; native Plasma Mobile assets stay upstream.
 mkdir -p "$root/opt/native007"
 cp -a "$project/diagnostics/native007/." "$root/opt/native007/"
-chroot "$root" /bin/bash /opt/native007/build-in-arch.sh
-chroot "$root" /bin/bash /opt/native007/test-in-arch.sh
-cp -a "$root/native-results" "$out/native-results"
+if [[ -n ${ARCHOHALL_NATIVE_COMPONENT_DIR:-} ]]; then
+    # A failed runtime check must not force an unchanged compositor to recompile.
+    python3 "$project/scripts/verify-native-candidate.py" "$root" "$ARCHOHALL_NATIVE_COMPONENT_DIR"
+    tar -xJf "$ARCHOHALL_NATIVE_COMPONENT_DIR/archohall-native-007-aarch64.tar.xz" -C "$root"
+    cp "$ARCHOHALL_NATIVE_COMPONENT_DIR/kwin-native-upstream-source.tar.gz" "$root/tmp/kwin-native-source.tar.gz"
+else
+    chroot "$root" /bin/bash /opt/native007/build-in-arch.sh
+fi
 cp "$root/tmp/kwin-native-source.tar.gz" "$out/kwin-native-upstream-source.tar.gz"
-cp -a "$project/diagnostics/native007" "$out/native-build-scripts"
+tar -C "$project/diagnostics" -cJf "$out/native-build-scripts.tar.xz" native007
+# Export the compiled candidate BEFORE runtime tests; this does not certify a release.
 tar -C "$root" -cJf "$out/archohall-native-007-aarch64.tar.xz" opt/archohall-kwin-compat usr/local/bin/archohall-kwin-compat
-python3 - "$root" "$out" <<'PYMETA'
+python3 - "$root" "$out" "$project" <<'PYMETA'
 from pathlib import Path
 import json,hashlib,subprocess,sys
-root,out=map(Path,sys.argv[1:])
+root,out,project=map(Path,sys.argv[1:])
 packages={}
 for name in ['kwin','plasma-mobile','qt6-base','qt6-declarative','qt6-wayland','kglobalacceld']:
  packages[name]=subprocess.check_output(['chroot',str(root),'pacman','-Q',name],text=True).split()[1]
 meta={'schema':1,'version':'0.07','kwinSource':'1b798c05c19b1124edb1e16623191fcd2c128fd0','renderer':'llvmpipe-OpenGL-SHM','sha256':hashlib.sha256((out/'archohall-native-007-aarch64.tar.xz').read_bytes()).hexdigest(),'packages':packages}
+meta['buildInputs']={name:hashlib.sha256((project/'diagnostics/native007'/name).read_bytes()).hexdigest() for name in ['patch-kwin.py','build-in-arch.sh','archohall-kwin-compat']}
 (out/'native-component.json').write_text(json.dumps(meta,indent=2)+'\n')
 (root/'opt/archohall-kwin-compat/native-component.json').write_text(json.dumps(meta,indent=2)+'\n')
 (root/'.archohall-native-007').write_text('0.07\n')
 PYMETA
 # The component archive is deliberately hashed before its external manifest is written.
+chroot "$root" /usr/local/bin/archohall-configure
+chroot "$root" chown -R 1000:1000 /home/arch
+chroot "$root" /bin/bash /opt/native007/test-in-arch.sh
+cp -a "$root/native-results" "$out/native-results"
+tar -C "$root" -cJf "$out/native-test-results.tar.xz" native-results
 rm -rf "$root/build" "$root/opt/native007" "$root/native-results"
+chroot "$root" pacman -Scc --noconfirm
 chroot "$root" pacman -Q > "$out/packages.txt"
 rm -f "$root/root/archohall-packages.txt" "$root/tmp/archohall-packages.txt" "$root/tmp/archohall-provision.sh"
 cleanup
@@ -79,10 +92,10 @@ trap - EXIT
 # Resolver is supplied by the runtime after import; don't ship CI-local DNS.
 printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' > "$root/etc/resolv.conf"
 {
-    printf 'project=ArchOHall\narchitecture=aarch64\nbuilt_at=%s\n' "$(date -u +%FT%TZ)"
+    printf 'project=ArchOHall\nversion=0.07\narchitecture=aarch64\nbuilt_at=%s\n' "$(date -u +%FT%TZ)"
     printf 'commit=%s\nsource=%s\n' "${GITHUB_SHA:-local}" "$source_url"
     printf 'source_sha256=%s\n' "$(sha256sum "$work/base.tar.gz" | cut -d ' ' -f1)"
-    printf 'source_signer=%s\nvalidation=packages-and-linker-only; Android runtime not tested\n' "$fingerprint"
+    printf 'source_signer=%s\nvalidation=packages-linker-native-effect-Xvfb; Android runtime not tested\n' "$fingerprint"
 } > "$out/build-info.txt"
 tar --numeric-owner --one-file-system -C "$root" \
     --exclude='./dev/*' --exclude='./proc/*' --exclude='./sys/*' \

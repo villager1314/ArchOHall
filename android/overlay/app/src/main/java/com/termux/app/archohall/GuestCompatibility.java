@@ -6,13 +6,24 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
 public final class GuestCompatibility {
-    private static final String HASH = "8997a9cbf09361ce8614fda5925f21eb8bcd652ccd303f54433c40a1f58d28e4";
     public static void install(Context c, OfflineRuntime.Monitor monitor) throws Exception {
         File work = new File(c.getFilesDir(), "compat-work");
         SafeTar.deleteTree(work); work.mkdirs();
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            long total = 8343072, count = 0;
+            org.json.JSONObject metadata;
+            try (InputStream in = c.getAssets().open("native-component.json")) {
+                ByteArrayOutputStream data = new ByteArrayOutputStream();
+                byte[] bytes = new byte[4096]; int length;
+                while ((length = in.read(bytes)) != -1) data.write(bytes, 0, length);
+                metadata = new org.json.JSONObject(new String(data.toByteArray(), StandardCharsets.UTF_8));
+            }
+            String expectedHash = metadata.getString("sha256");
+            if (!expectedHash.matches("[0-9a-f]{64}")) throw new IOException("无效的原生组件清单");
+            try (OutputStream out = new FileOutputStream(new File(work, "native-component.json"))) {
+                out.write(metadata.toString().getBytes(StandardCharsets.UTF_8));
+            }
+            long total = -1, count = 0;
             try (InputStream in = c.getAssets().open("desktop-compat.tar.xz"); OutputStream out = new FileOutputStream(new File(work, "desktop-compat.tar.xz"))) {
                 byte[] buffer = new byte[131072]; int n;
                 while ((n = in.read(buffer)) != -1) {
@@ -21,7 +32,7 @@ public final class GuestCompatibility {
                     monitor.phase("读取桌面兼容组件", count, total, "完全离线");
                 }
             }
-            if (!HASH.equals(OfflineRuntime.hex(digest.digest()))) throw new IOException("内置桌面兼容组件校验失败");
+            if (!expectedHash.equals(OfflineRuntime.hex(digest.digest()))) throw new IOException("内置桌面兼容组件校验失败");
             for (String name : new String[]{"install", "mobile", "session"}) {
                 try (InputStream in = c.getAssets().open("compat-" + name); OutputStream out = new FileOutputStream(new File(work, name))) {
                     byte[] b = new byte[8192]; int n; while ((n = in.read(b)) != -1) out.write(b, 0, n);
