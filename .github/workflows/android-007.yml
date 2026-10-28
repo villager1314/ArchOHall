@@ -21,7 +21,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y curl gnupg xz-utils
-          mkdir -p dist
           set -o pipefail
           sudo --preserve-env=GITHUB_SHA bash scripts/build-rootfs.sh 2>&1 | tee native-build.log
       - name: Upload matched rootfs and native compositor
