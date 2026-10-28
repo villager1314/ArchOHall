@@ -26,4 +26,4 @@ APK 来自 [成功构建 40523515699](https://github.com/villager1314/ArchOHall/
 e4310fa9a9c28b2ed26380729a6aa7bb8c7d5e9ce60265c2c709e427b2901484
 ```
 
-开发复盘另见 [测试版开发记录](https://github.com/villager1314/ArchOHall/blob/main/docs/development/ANDROID-EXPERIMENTS.md)，不放在仓库首页。文档与发布流程整理没有改变这份已验证 APK。
+开发复盘另见 [测试版开发记录](https://github.com/villager1314/ArchOHall/blob/main/docs/development/ANDROID-EXPERIMENTS.md)，不放在仓库首页。Release 标签包含后续文档与 CI 整理；发布流程会检查应用源码与上述原构建提交一致。文档与发布流程整理没有改变这份已验证 APK。

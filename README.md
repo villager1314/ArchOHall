@@ -101,7 +101,7 @@ Plasma Mobile 已在 ARM64 手机上启动，软件渲染、缩放和应用列�
 ```bash
 git clone https://github.com/villager1314/ArchOHall.git
 cd ArchOHall
-# 复现已发布的 0.06：git checkout android-0.06
+# 已发布 APK 的原构建源码：git checkout 81e67eec69c47bc5689fa0a42a4652d1e64f87d8
 ```
 
 构建使用 Python 3、JDK 17 和 Android SDK 36。工作流会组合锁定的 Termux / Termux:X11 源码、校验离线运行包与兼容组件，执行测试，再使用配置好的固定密钥签名。

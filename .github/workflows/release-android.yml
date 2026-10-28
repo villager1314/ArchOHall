@@ -29,6 +29,23 @@ jobs:
         run: |
           test "$(gh api repos/$GH_REPO/actions/runs/40523515699 --jq .head_sha)" = "$SOURCE_SHA"
           test "$(gh api repos/$GH_REPO/actions/runs/40523515699 --jq .conclusion)" = success
+      - name: Require application sources to match the verified build
+        run: |
+          gh api "repos/$GH_REPO/compare/$SOURCE_SHA...$GITHUB_SHA" > source-comparison.json
+          python3 - <<'PY'
+          import json
+          from pathlib import PurePosixPath
+          data = json.load(open('source-comparison.json'))
+          assert data['status'] in ('ahead', 'identical')
+          assert len(data['files']) < 300
+          def documentation_or_ci(path):
+              return path in ('README.md', 'android/README.md') or path.startswith('docs/') or (path.startswith('diagnostics/') and path.endswith('.md')) or (path.startswith('.github/workflows/') and path.endswith(('.yml', '.yaml')))
+          for entry in data['files']:
+              assert documentation_or_ci(entry['filename']), entry['filename']
+              if 'previous_filename' in entry:
+                  assert documentation_or_ci(entry['previous_filename'])
+          print('Only documentation and CI differ from the verified application sources')
+          PY
       - name: Download the retained signed APK
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -72,7 +89,7 @@ jobs:
               exit 0
             fi
           else
-            gh release create "$tag" --target "$SOURCE_SHA" --title 'ArchOHall Android 0.06（实验版）' --notes-file docs/releases/android-0.06.md --draft --prerelease
+            gh release create "$tag" --target "$GITHUB_SHA" --title 'ArchOHall Android 0.06（实验版）' --notes-file docs/releases/android-0.06.md --draft --prerelease
           fi
           gh release upload "$tag" release-assets/ArchOHall-0.06-arm64.apk release-assets/SHA256SUMS release-assets/runtime-manifest.json --clobber
           gh release edit "$tag" --draft=false --prerelease --latest=false
