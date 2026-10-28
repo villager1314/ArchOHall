@@ -1,5 +1,7 @@
 # Android desktop support (0.05)
 
+> Historical 0.05 record. For current behavior, migration and limitations see [Android 0.06](ANDROID-006.md).
+
 The Android app's **修复桌面组件与 Android 桥接** action installs managed guest files,
 retains their previous versions as `.before-support-005`, applies quick-setting
 overrides, and installs missing packages using the image's existing package databases.

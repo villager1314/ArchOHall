@@ -1,5 +1,7 @@
 # KWin X11 software-rendering experiment
 
+> Historical compatibility experiment. In current 0.06 sessions only KWin uses QPainter; Plasma and the keyboard use llvmpipe OpenGL. The older Qt Quick software-session instruction below describes the initial experiment. See [Android 0.06](ANDROID-006.md).
+
 The affected phone has KWin 6.8.1-2, Plasma Mobile/Workspace 6.8.1,
 Mesa 26.2.5 and Qt 6.12.0. Its crash traces identified two separate failures:
 

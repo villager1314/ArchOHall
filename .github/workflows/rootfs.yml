@@ -6,9 +6,6 @@ on:
         description: Publish a prerelease after a successful build
         type: boolean
         default: false
-  push:
-    branches: [main]
-    paths: ['.github/workflows/rootfs.yml', 'scripts/**', 'rootfs/**', 'packages.txt']
 permissions:
   contents: read
 concurrency:
@@ -28,8 +25,24 @@ jobs:
           sudo apt-get install -y --no-install-recommends curl gnupg xz-utils shellcheck
       - name: Check shell scripts
         run: |
-          find scripts rootfs/usr/local/bin -type f -print0 | xargs -0 -n1 bash -n
-          shellcheck scripts/*.sh rootfs/usr/local/bin/*
+          python3 - <<'PYCODE'
+          import ast
+          from pathlib import Path
+          import subprocess
+          shells = []
+          for root in (Path('scripts'), Path('rootfs/usr/local/bin')):
+              for path in sorted(root.rglob('*')):
+                  if not path.is_file() or '__pycache__' in path.parts or path.suffix == '.pyc':
+                      continue
+                  text = path.read_text()
+                  first = text.splitlines()[0] if text else ''
+                  if path.suffix == '.py' or 'python' in first:
+                      ast.parse(text, filename=str(path))
+                  elif path.suffix == '.sh' or 'bash' in first:
+                      subprocess.run(['bash', '-n', str(path)], check=True)
+                      shells.append(str(path))
+          subprocess.run(['shellcheck', *shells], check=True)
+          PYCODE
       - name: Build signed-upstream ARM64 rootfs
         run: sudo --preserve-env=GITHUB_SHA bash scripts/build-rootfs.sh
       - name: Upload install bundle
