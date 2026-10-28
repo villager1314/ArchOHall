@@ -96,7 +96,7 @@ Plasma Mobile 已在 ARM64 手机上启动，软件渲染、缩放和应用列�
 
 ## 🛠️ 从源码构建
 
-推荐使用仓库的 [Android 构建工作流](.github/workflows/android.yml)。开发源码可通过以下方式获取；复现已发布 APK 请检出 Release 标签：
+推荐使用仓库的 [Android 构建工作流](.github/workflows/android.yml)。开发源码可通过以下方式获取；复现已发布 APK 时，请使用下方注明的原构建提交：
 
 ```bash
 git clone https://github.com/villager1314/ArchOHall.git
