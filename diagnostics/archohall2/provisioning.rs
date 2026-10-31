@@ -132,11 +132,11 @@ impl ProvisioningPhase {
         match self {
             Self::Idle => "Idle",
             Self::Preparing => "Preparing",
-            Self::Downloading => "Downloading Debian",
+            Self::Downloading => "Downloading Arch Linux ARM",
             Self::Verifying => "Verifying",
             Self::Extracting => "Extracting",
             Self::Promoting => "Promoting",
-            Self::Configuring => "Configuring Portal",
+            Self::Configuring => "Configuring ArchOHall2",
             Self::Finalising => "Finalising",
             Self::Complete => "Complete",
             Self::Failed => "Failed",
@@ -251,9 +251,9 @@ enum CompletionMarkerKind {
 pub enum RuntimeClassification {
     /// The named runtime path is not present.
     Absent,
-    /// A compatible Debian runtime with the final three-line Portal marker.
+    /// A compatible Arch runtime with the final three-line Portal marker.
     BootablePortal,
-    /// A compatible Debian runtime with Portal's older two-line marker.
+    /// A compatible Arch runtime with Portal's older two-line marker.
     LegacyPortal,
     /// A layout validated against the exact pinned image identity, but with
     /// no final installation completion marker yet.
@@ -529,7 +529,7 @@ impl RuntimeArtifact {
             anyhow::ensure!(entry?.unpack_in(staging)?, "Unsafe runtime archive path");
             count += 1;
             if last.elapsed() >= Duration::from_secs(1) {
-                report(format!("Extracting Debian runtime: {count} entries"));
+                report(format!("Extracting Arch runtime: {count} entries"));
                 last = Instant::now();
             }
         }
@@ -580,7 +580,7 @@ impl RuntimeArtifact {
             format!("{version}\n{digest}\n")
         } else {
             anyhow::bail!(
-                "Cannot mark Portal installed: the validated Debian image is unavailable"
+                "Cannot mark ArchOHall2 installed: the validated Arch image is unavailable"
             );
         };
 
@@ -601,7 +601,7 @@ impl RuntimeArtifact {
         Ok(())
     }
 
-    /// Complete the Debian image transaction. All paths before this method
+    /// Complete the Arch image transaction. All paths before this method
     /// are safe to repeat after process death; the final marker is deliberately
     /// left for `mark_installation_complete` in the setup coordinator.
     pub fn provision(&self, base: &Path, report: impl Fn(String)) -> anyhow::Result<()> {
@@ -638,7 +638,7 @@ impl RuntimeArtifact {
         // replaced only after a fresh staging tree validates.
         if fs::symlink_metadata(root.join(READY_MARKER)).is_ok() {
             anyhow::bail!(
-                "Existing Debian runtime is marked complete but failed validation; refusing to replace user data"
+                "Existing Arch runtime is marked complete but failed validation; refusing to replace user data"
             );
         }
 
@@ -646,7 +646,7 @@ impl RuntimeArtifact {
             &report,
             ProvisioningPhase::Preparing,
             0,
-            "Preparing Portal's Debian runtime…",
+            "Preparing ArchOHall2 runtime…",
         );
 
         let staging = base.join("runtime-B.staging");
@@ -672,7 +672,7 @@ impl RuntimeArtifact {
                 &report,
                 ProvisioningPhase::Promoting,
                 68,
-                "Recovering the validated Debian runtime…",
+                "Recovering the validated Arch runtime…",
             );
             self.promote_staging(base, &root, &staging)?;
             if let Err(error) = remove_path_synced(&base.join("portal-runtime.tar.xz")) {
@@ -682,7 +682,7 @@ impl RuntimeArtifact {
                 &report,
                 ProvisioningPhase::Configuring,
                 70,
-                "Debian runtime committed; configuring Portal…",
+                "Arch runtime committed; configuring ArchOHall2…",
             );
             return Ok(());
         }
@@ -766,7 +766,7 @@ impl RuntimeArtifact {
                                 &report,
                                 ProvisioningPhase::Extracting,
                                 55,
-                                format!("Extracting Debian runtime: {count} entries"),
+                                format!("Extracting Arch runtime: {count} entries"),
                             );
                         });
                     }
@@ -779,7 +779,7 @@ impl RuntimeArtifact {
                         &report,
                         ProvisioningPhase::Extracting,
                         52,
-                        "Extracting the validated Debian runtime…",
+                        "Extracting the validated Arch runtime…",
                     );
                     let extract_report = |message: String| {
                         self.emit(&report, ProvisioningPhase::Extracting, 55, message);
@@ -790,7 +790,7 @@ impl RuntimeArtifact {
                     &report,
                     ProvisioningPhase::Promoting,
                     68,
-                    "Validating and committing the Debian runtime…",
+                    "Validating and committing the Arch runtime…",
                 );
                 self.promote_staging(base, &root, &staging)?;
                 // The archive is disposable only after the live image has
@@ -803,7 +803,7 @@ impl RuntimeArtifact {
                     &report,
                     ProvisioningPhase::Configuring,
                     70,
-                    "Debian runtime committed; configuring Portal…",
+                    "Arch runtime committed; configuring ArchOHall2…",
                 );
                 Ok(())
             })();
@@ -818,7 +818,7 @@ impl RuntimeArtifact {
             };
             if error.downcast_ref::<WaitingForNetwork>().is_some() {
                 offline_waits += 1;
-                log::warn!("Debian runtime download lost its connection: {error:#}; waiting to resume");
+                log::warn!("Arch runtime download lost its connection: {error:#}; waiting to resume");
                 self.emit(
                     &report,
                     ProvisioningPhase::Downloading,
@@ -830,7 +830,7 @@ impl RuntimeArtifact {
             }
             failures += 1;
             log::warn!(
-                "Debian runtime attempt {failures}/3 failed: {error:#}; resumable state preserved"
+                "Arch runtime attempt {failures}/3 failed: {error:#}; resumable state preserved"
             );
             if failures >= 3 {
                 return Err(error);
@@ -1210,7 +1210,7 @@ impl RuntimeArtifact {
             report,
             ProvisioningPhase::Downloading,
             self.download_progress(partial),
-            "Downloading Debian runtime…",
+            "Downloading Arch Linux ARM runtime…",
         );
         let mut actual_length = regular_file_length(partial).unwrap_or(0);
         if path_exists(partial) && regular_file_length(partial).is_none() {
@@ -1341,7 +1341,7 @@ impl RuntimeArtifact {
                     ProvisioningPhase::Downloading,
                     progress,
                     format!(
-                        "Downloading Debian runtime: {} / {} MiB",
+                        "Downloading Arch Linux ARM runtime: {} / {} MiB",
                         downloaded / 1048576,
                         self.compressed_bytes / 1048576
                     ),
@@ -1371,7 +1371,7 @@ impl RuntimeArtifact {
                 report,
                 ProvisioningPhase::Downloading,
                 45,
-                "Debian runtime download complete; checking it…",
+                "Arch runtime download complete; checking it…",
             );
             // A full-size prefix is still not a final archive until this verify
             // succeeds. Move it atomically only after the exact check.
