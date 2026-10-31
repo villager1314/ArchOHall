@@ -8,6 +8,7 @@
 //! configuration (including the pinned Mesa layer and durable renderer
 //! selection) has succeeded.
 
+use anyhow::Context;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::{
@@ -369,7 +370,8 @@ impl RuntimeArtifact {
     /// Validate an extracted archive against this exact release artifact.
     pub fn validate_image(&self, root: &Path) -> anyhow::Result<()> {
         anyhow::ensure!(
-            fs::read_to_string(root.join(IMAGE_MARKER))?.trim() == self.version,
+            fs::read_to_string(root.join(IMAGE_MARKER))
+                .with_context(|| format!("Read runtime image identity: {}", root.join(IMAGE_MARKER).display()))?.trim() == self.version,
             "Runtime artifact version mismatch"
         );
         self.validate_layout(root)
@@ -539,7 +541,21 @@ impl RuntimeArtifact {
 
     /// Validate an unpacked tree and mark it as an image candidate.
     fn seal_staging(&self, staging: &Path) -> anyhow::Result<()> {
-        self.validate_image(staging)?;
+        // The pinned Arch component image predates Portal's version file.
+        // Only stamp freshly extracted staging after archive hash verification;
+        // never rewrite an existing identity or mark the installation complete.
+        if self.distribution == RuntimeDistribution::ArchMobile {
+            let marker = staging.join(IMAGE_MARKER);
+            if matches!(fs::symlink_metadata(&marker), Err(ref e) if e.kind() == io::ErrorKind::NotFound) {
+                self.validate_layout(staging).context("Validate extracted Arch component layout")?;
+                let etc = staging.join("etc");
+                let meta = fs::symlink_metadata(&etc).context("Inspect Arch configuration directory")?;
+                anyhow::ensure!(meta.is_dir() && !meta.file_type().is_symlink(), "Unsafe Arch configuration directory");
+                write_atomic(&marker, format!("{}\n", self.version).as_bytes())
+                    .context("Record pinned Arch image identity")?;
+            }
+        }
+        self.validate_image(staging).context("Validate extracted runtime image")?;
         write_atomic(
             &staging.join(IMAGE_READY_MARKER),
             self.identity().as_bytes(),
@@ -1417,7 +1433,8 @@ fn unpack_runtime_entries<R: Read>(
         if entry.header().entry_type().is_dir() {
             directories.push(entry);
         } else if entry.header().entry_type().is_hard_link() {
-            unpack_hardlink_as_file(&entry, staging)?;
+            unpack_hardlink_as_file(&entry, staging)
+                .with_context(|| format!("Materialize archive hardlink {:?} -> {:?}", entry.path_bytes(), entry.link_name_bytes()))?;
         } else {
             anyhow::ensure!(entry.unpack_in(staging)?, "Unsafe runtime archive path");
         }
@@ -1440,7 +1457,8 @@ fn unpack_hardlink_as_file<R: Read>(entry: &tar::Entry<'_, R>, staging: &Path) -
     let target = entry.link_name()?.ok_or_else(|| anyhow::anyhow!("Hardlink target missing"))?;
     anyhow::ensure!(target.components().all(|c| matches!(c, Component::Normal(_) | Component::CurDir)), "Unsafe runtime hardlink target");
     let base = staging.canonicalize()?;
-    let source = base.join(&target).canonicalize()?;
+    let source = base.join(&target).canonicalize()
+        .with_context(|| format!("Resolve archive hardlink target: {}", target.display()))?;
     anyhow::ensure!(source.starts_with(&base), "Runtime hardlink target escapes staging");
     let input = fs::File::open(&source)?;
     let metadata = input.metadata()?;
@@ -2088,6 +2106,16 @@ mod tests {
             )).unwrap();
         }
         assert!(RuntimeArtifact::validate_arch_mobile_layout(&root).is_ok());
+        fs::create_dir_all(root.join("etc")).unwrap();
+        let (mut artifact, _) = fixture(temp.path(), "arch-component");
+        artifact.distribution = RuntimeDistribution::ArchMobile;
+        assert!(!artifact.is_image_ready(&root));
+        artifact.seal_staging(&root).unwrap();
+        assert!(artifact.is_image_ready(&root));
+        assert!(!artifact.is_bootable(&root));
+        fs::write(root.join(IMAGE_MARKER), "wrong-version").unwrap();
+        assert!(artifact.seal_staging(&root).is_err());
+        assert_eq!(fs::read_to_string(root.join(IMAGE_MARKER)).unwrap(), "wrong-version");
         let desc = root.join("var/lib/pacman/local/kwin/desc");
         let original = fs::read_to_string(&desc).unwrap();
         fs::write(&desc, original.replace("aarch64", "x86_64")).unwrap();
