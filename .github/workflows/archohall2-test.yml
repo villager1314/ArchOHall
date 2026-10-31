@@ -138,7 +138,10 @@ jobs:
               --title 'ArchOHall2 experimental Arch runtime' \
               --notes 'Reused Arch ARM + Plasma Mobile rootfs and KWin 6.8.2 Anland build. Experimental; not device validated. Separate from Portal and existing ArchOHall.'
           fi
-          gh release upload "$tag" runtime/archohall-arch-mobile-experimental.tar.zst runtime/archohall2-runtime.json runtime/ArchOHall2-profile-source.tar.xz --clobber
+          if ! gh release view "$tag" --json assets --jq '.assets[].name' | grep -qx 'archohall-arch-mobile-experimental.tar.zst'; then
+            gh release upload "$tag" runtime/archohall-arch-mobile-experimental.tar.zst
+          fi
+          gh release upload "$tag" runtime/archohall2-runtime.json runtime/ArchOHall2-profile-source.tar.xz --clobber
       - name: Install host build prerequisites
         run: |
           sudo apt-get update
@@ -153,6 +156,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v5
         with:
           gradle-version: '8.14.3'
+          cache-read-only: false
       - name: Restore Rust and Android build caches
         id: rust-cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
@@ -162,9 +166,17 @@ jobs:
             ~/.cargo/git
             ~/.cargo/bin/x
             ~/.cache/x
+            ~/.android/debug.keystore
             portal/target
           key: archohall2-android-v1-${{ hashFiles('portal/Cargo.lock') }}-${{ github.run_id }}
           restore-keys: archohall2-android-v1-${{ hashFiles('portal/Cargo.lock') }}-
+      - name: Download previous test APK for update-certificate check
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ArchOHall2-test-41167326200
+          run-id: 41167326200
+          github-token: ${{ github.token }}
+          path: previous-apk
       - name: Build pinned xbuild
         working-directory: portal
         run: |
@@ -185,6 +197,8 @@ jobs:
           cp "$apk" apk-out/ArchOHall2-test.apk
           python3 diagnostics/archohall2/check-apk.py apk-out/ArchOHall2-test.apk
           sha256sum apk-out/ArchOHall2-test.apk > apk-out/SHA256SUMS
+          python3 diagnostics/archohall2/check-update-certificate.py previous-apk apk-out/ArchOHall2-test.apk > apk-out/update-certificate.txt
+          cat apk-out/update-certificate.txt
       - name: Save incremental Android cache after success or failure
         if: always() && steps.rust-cache.outcome == 'success'
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
@@ -194,6 +208,7 @@ jobs:
             ~/.cargo/git
             ~/.cargo/bin/x
             ~/.cache/x
+            ~/.android/debug.keystore
             portal/target
           key: ${{ steps.rust-cache.outputs.cache-primary-key }}
       - name: Upload test APK and manifest
