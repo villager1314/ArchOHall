@@ -44,6 +44,10 @@ edit('src/core/config.rs','pub const DESKTOP_USER: &str = "desktop";','pub const
 edit('src/core/config.rs','https://github.com/Retrorerr/Portal#readme','https://github.com/villager1314/ArchOHall#readme')
 edit('src/core/runtime.rs','distro_name: "Debian 13 (Trixie) ARM64".to_string()','distro_name: "Arch Linux ARM + Plasma Mobile".to_string()')
 edit('src/lib.rs','pub mod setup;','pub mod setup;\n        pub mod archohall2;\n        pub mod arch_fs;\n        pub mod arch_gpu;')
+# Keep diagnostic access above the desktop, reusing native export/control UI.
+edit('src/android/kotlin/app/polarbear/PortalActivity.kt', 'ComposeOverlay.attachContext(this)', 'ComposeOverlay.attachContext(this)\n        ArchDebug.attach(this)\n        ArchDebug.handle(this, intent)')
+edit('src/android/kotlin/app/polarbear/PortalActivity.kt', 'super.onNewIntent(intent)', 'super.onNewIntent(intent)\n        ArchDebug.handle(this, intent)')
+edit('src/android/kotlin/app/polarbear/PortalActivity.kt', 'TouchControls.attach(this)', 'TouchControls.attach(this)\n        ArchDebug.attach(this)')
 setup='src/android/proot/setup.rs'
 import runpy
 runpy.run_path(str(here/'reuse-upstream.py'))['adapt'](root)
@@ -137,4 +141,9 @@ for q in (root/'src/android/kotlin').rglob('*.kt'):
 for q in (here/'overlay').rglob('*'):
     if q.is_file():
         target=root/q.relative_to(here/'overlay');target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(q,target)
+import os
+build_id = os.environ.get('GITHUB_RUN_ID', 'local')
+assert re.fullmatch(r'[A-Za-z0-9_-]+', build_id)
+debug = root/'src/android/kotlin/app/polarbear/ArchDebug.kt'
+debug.write_text(debug.read_text().replace('@ARCHOHALL_BUILD@', build_id))
 print('Applied ArchOHall2 profile to pinned Portal source')

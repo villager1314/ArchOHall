@@ -119,3 +119,27 @@ pub fn validate_host_keyboard() -> anyhow::Result<()> {
     }
     Ok(())
 }
+
+/// Local Android debug console; no exported receiver or network listener.
+#[no_mangle]
+pub extern "system" fn Java_app_polarbear_ArchDebug_nativeCommand(
+    mut env: jni::JNIEnv,
+    _class: jni::objects::JClass,
+    command: jni::objects::JString,
+    root: jni::sys::jboolean,
+) -> jni::sys::jstring {
+    let result = (|| -> anyhow::Result<String> {
+        let command: String = env.get_string(&command)?.into();
+        anyhow::ensure!(!command.trim().is_empty() && command.len() <= 8192, "Command is empty or too long");
+        let quoted = format!("'{}'", command.replace('\'', "'\\''"));
+        let output = PRootRuntime::production().execute(
+            ProcessSpec::new(format!("/usr/bin/timeout --signal=TERM --kill-after=2s 20s /bin/bash -lc {quoted}"))
+                .with_user(if root != 0 { "root" } else { "arch" })
+                .with_working_dir("/home/arch"),
+            None, None,
+        );
+        let text = format!("status={}\n{}\n{}", output.status, String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
+        Ok(text.chars().take(65536).collect())
+    })().unwrap_or_else(|error| format!("Debug command failed: {error:#}"));
+    env.new_string(result).map(|value| value.into_raw()).unwrap_or(std::ptr::null_mut())
+}

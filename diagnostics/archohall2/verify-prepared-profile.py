@@ -45,3 +45,13 @@ session=(root/'assets/archohall2-session.sh').read_text()
 assert 'export KWIN_RENDER_NODES=/dev/dri/renderD128' in session
 assert 'unset KWIN_DRM_DEVICES' in session
 assert 'export KWIN_DRM_DEVICES=' not in session
+
+activity=(root/'src/android/kotlin/app/polarbear/PortalActivity.kt').read_text()
+assert activity.count('ArchDebug.attach(this)') == 2
+assert activity.count('ArchDebug.handle(this, intent)') == 2
+debug=(root/'src/android/kotlin/app/polarbear/ArchDebug.kt').read_text()
+assert '@ARCHOHALL_BUILD@' not in debug
+assert 'ComposeOverlay.exportDiagnostics()' in debug
+assert 'ComposeOverlay.showReturn(activity)' in debug
+assert 'PendingIntent.FLAG_IMMUTABLE' in debug
+assert 'Java_app_polarbear_ArchDebug_nativeCommand' in (root/'src/android/proot/archohall2.rs').read_text()
