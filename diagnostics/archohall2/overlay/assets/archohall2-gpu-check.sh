@@ -21,6 +21,11 @@ for library in /opt/archohall-mobile/lib/dri/kgsl_dri.so /opt/archohall-mobile/l
 done
 stage=kwin-backend
 help=$(QT_QPA_PLATFORM=offscreen /opt/archohall-mobile/bin/kwin_wayland --help 2>&1)
-grep -q -- '--anland' <<< "$help"
+for option in --anland --inputmethod --exit-with-session; do
+    if ! grep -qF -- "$option" <<< "$help"; then
+        printf 'stage=kwin-options status=failed missing=%s\n' "$option" >&2
+        exit 1
+    fi
+done
 for executable in setsid dbus-run-session plasmashell kscreen-doctor; do command -v "$executable"; done
 printf 'stage=preflight status=passed (not desktop-rendering proof)\n'

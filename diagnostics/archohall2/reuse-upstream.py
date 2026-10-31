@@ -26,6 +26,10 @@ def adapt(root):
     replace(wrapper, 'libkwin.so.6.3.6', 'libkwin.so.6.8.2')
     replace(wrapper, '/usr/local/lib/portal/anland-damage.so', '/usr/local/lib/portal/anland-damage-68.so')
     replace(wrapper, '/opt/archohall-mobile/bin/kwin_wayland --help', 'QT_QPA_PLATFORM=offscreen /opt/archohall-mobile/bin/kwin_wayland --help')
+    # KWIN_BUILD_SCREENLOCKER=OFF omits both locker code and its CLI options.
+    replace(wrapper, ' --no-lockscreen', '')
+    recovery = assets/'localdesktop-recovery.sh'
+    replace(recovery, 'write_recovery_autostart\nprintf', 'if ! command -v labwc >/dev/null 2>&1; then\n    printf \'stage=recovery-unavailable reason=missing-labwc action=android-error-screen\\n\' >> "$recovery_log"\n    # Keep plasma-failed untouched; Android presents its retry/export screen.\n    exit 127\nfi\nwrite_recovery_autostart\nprintf')
     # C crash/backtrace wrapper remains; only component locations/version change.
     services = assets/'portal-system-services.sh'
     replace(services, 'messagebus', 'dbus')

@@ -28,11 +28,15 @@ assert '/usr/bin/startplasma-wayland >>' not in launcher
 assert 'kwin_wayland --exit-with-session /usr/local/bin/archohall2-mobile-shell' in launcher
 wrapper=(root/'assets/localdesktop-kwin-wrapper-v2.sh').read_text()
 assert '--inputmethod /usr/local/bin/portal-ime-bridge' in wrapper
-assert '/opt/archohall-mobile/bin/kwin_wayland --no-lockscreen' in wrapper
+assert '--no-lockscreen' not in wrapper
+assert wrapper.count('/opt/archohall-mobile/bin/kwin_wayland --inputmethod /usr/local/bin/portal-ime-bridge') == 3
+recovery=(root/'assets/localdesktop-recovery.sh').read_text()
+assert recovery.index('command -v labwc') < recovery.index('\nwrite_recovery_autostart\n')
+assert 'reason=missing-labwc action=android-error-screen' in recovery
 assert 'QT_QPA_PLATFORM=offscreen /opt/archohall-mobile/bin/kwin_wayland --help' in wrapper
 assert 'libkwin.so.6.3.6' not in wrapper
 services=(root/'assets/portal-system-services.sh').read_text()
 assert 'apt-get' not in services and 'dpkg-divert --' not in services
-for file in ['archohall2-upstream-launcher.sh','localdesktop-startplasma.sh','localdesktop-kwin-wrapper-v2.sh','portal-system-services.sh','localdesktop-clipboard-sync.sh','localdesktop-clipboard-push.sh']:
+for file in ['archohall2-upstream-launcher.sh','localdesktop-startplasma.sh','localdesktop-kwin-wrapper-v2.sh','portal-system-services.sh','localdesktop-clipboard-sync.sh','localdesktop-clipboard-push.sh','localdesktop-recovery.sh']:
     subprocess.run(['bash','-n',str(root/'assets'/file)],check=True)
 print('Clean prepared profile: embedded assets, XKB gates, reused bridges and scripts: PASS')
