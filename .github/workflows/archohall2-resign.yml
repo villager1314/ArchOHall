@@ -48,6 +48,8 @@ jobs:
           test -n "$expected"
           echo "$expected  $input" | sha256sum -c -
           mkdir -p signed
+          # Portal declares minSdk 21; include v1 alongside v2/v3.
+          sed -i "s/'--v1-signing-enabled', 'false'/'--v1-signing-enabled', 'true'/" android/sign_apk.py
           python3 android/sign_apk.py "$input" signed/ArchOHall2-test-fixed-sign.apk
       - name: Verify package and publish public certificate information
         shell: bash
