@@ -13,7 +13,7 @@ stage=devices
 [[ -d $XDG_RUNTIME_DIR && -O $XDG_RUNTIME_DIR && -w $XDG_RUNTIME_DIR ]]
 [[ $(stat -c %a "$XDG_RUNTIME_DIR") == 700 ]]
 stage=libraries
-for library in /opt/archohall-mobile/lib/dri/kgsl_dri.so /opt/archohall-mobile/lib/drmshim.so /opt/archohall-mobile/lib/libEGL_mesa.so.0 /opt/archohall-mobile/lib/libgbm.so.1 /opt/archohall-mobile/bin/kwin_wayland /usr/local/bin/wl-copy /usr/local/bin/wl-paste; do
+for library in /opt/archohall-mobile/lib/dri/kgsl_dri.so /opt/archohall-mobile/lib/drmshim.so /opt/archohall-mobile/lib/libEGL_mesa.so.0 /opt/archohall-mobile/lib/libgbm.so.1 /opt/archohall-mobile/bin/kwin_wayland /usr/local/bin/wl-copy /usr/local/bin/wl-paste /usr/local/lib/portal/anland-damage-68.so; do
     [[ -s $library ]]
     dependencies=$(ldd "$library" 2>&1)
     printf '%s\n%s\n' "$library" "$dependencies"

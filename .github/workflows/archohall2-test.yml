@@ -134,11 +134,21 @@ jobs:
         with:
           name: archohall2-gpu-${{ github.run_id }}
           path: gpu
+      - name: Reuse tested ARM64 KWin 6.8 damage notification component
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: archohall2-damage-68-41191063162
+          run-id: 41191063162
+          github-token: ${{ github.token }}
+          path: damage
       - name: Prepare ArchOHall2 source and runtime manifest
         shell: bash
         run: |
           set -euo pipefail
+          expected=$(awk 'NR==1 {print $1}' damage/SHA256SUMS)
+          printf '%s  %s\n' "$expected" damage/anland-damage-68.so | sha256sum -c -
           python3 diagnostics/archohall2/prepare-portal.py portal
+          cp damage/anland-damage-68.so portal/assets/archohall2-damage-68.so
           cp gpu/archohall2-gpu.tar.zst portal/assets/
           awk '{print $1}' gpu/archohall2-gpu.sha256 > portal/assets/archohall2-gpu.sha256
           python3 diagnostics/archohall2/prepare-runtime.py runtime portal/assets/archohall2-runtime.json
@@ -165,7 +175,7 @@ jobs:
       - name: Install host build prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y llvm libssl-dev pkg-config ninja-build
+          sudo apt-get install -y llvm libssl-dev pkg-config ninja-build libxkbcommon0 xkb-data
           rustup target add aarch64-linux-android
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -219,6 +229,9 @@ jobs:
         run: |
           cargo test --manifest-path diagnostics/archohall2/tests/Cargo.toml --locked --lib
           python3 diagnostics/archohall2/check-profile.py
+          python3 diagnostics/archohall2/tests/native-xkb-smoke.py
+          python3 diagnostics/archohall2/verify-prepared-profile.py portal
+          python3 diagnostics/archohall2/tests/guest-access-smoke.py portal
       - name: Build independent test APK
         working-directory: portal
         env:

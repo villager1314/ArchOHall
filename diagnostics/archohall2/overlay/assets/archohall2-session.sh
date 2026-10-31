@@ -12,6 +12,7 @@ unset QT_QUICK_BACKEND LIBGL_ALWAYS_SOFTWARE GALLIUM_DRIVER EGL_PLATFORM
 export MESA_LOADER_DRIVER_OVERRIDE=kgsl GALLIUM_DRIVER=freedreno
 export FD_FORCE_KGSL=1 FD_KGSL_ENABLE_DMABUF=1 TURNIP_KMD=kgsl
 export ANLAND=1 XWAYLAND_FORCE_KGSL_SURFACELESS=1
+export LOCALDESKTOP_XWAYLAND_VARIANT="$(cat /etc/archohall2/xwayland-variant 2>/dev/null || echo stock)"
 export LD_LIBRARY_PATH=/opt/archohall-mobile/lib
 export LIBGL_DRIVERS_PATH=/opt/archohall-mobile/lib/dri
 export __EGL_VENDOR_LIBRARY_FILENAMES=/opt/archohall-mobile/share/glvnd/egl_vendor.d/50_mesa.json

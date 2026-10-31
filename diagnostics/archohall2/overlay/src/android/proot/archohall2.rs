@@ -42,6 +42,14 @@ pub fn sync(root: &Path) -> anyhow::Result<()> {
     }
     // Reuse Portal's portable session/bridge implementations from its pinned source.
     super::setup::sync_guest_session_directories(root)?;
+    super::setup::sync_default_menu(root);
+    super::setup::sync_system_services(root);
+    super::setup::sync_guest_host_path_alias(root);
+    super::arch_fs::directory(root, "etc/sudoers.d", 0o755)?;
+    let sudo = crate::core::guest_sudo::sync_sudo_access(root);
+    anyhow::ensure!(sudo.failed.is_empty(), "Arch sudo integration failed: {:?}", sudo.failed);
+
+    super::setup::sync_xwayland_overlay(root);
     for (path, data) in [
         ("usr/local/bin/localdesktop-startplasma-upstream", include_str!("../../../assets/archohall2-upstream-launcher.sh")),
         ("usr/local/bin/kwin_wayland", include_str!("../../../assets/localdesktop-kwin-wrapper-v2.sh")),
@@ -69,6 +77,7 @@ pub fn sync(root: &Path) -> anyhow::Result<()> {
         ("usr/local/bin/wl-copy", &include_bytes!("../../../assets/guest-arm64/wl-copy")[..]),
         ("usr/local/bin/wl-paste", &include_bytes!("../../../assets/guest-arm64/wl-paste")[..]),
     ] { super::arch_fs::write(root, path, data, 0o755)?; }
+    super::arch_fs::write(root, "usr/local/lib/portal/anland-damage-68.so", include_bytes!("../../../assets/archohall2-damage-68.so"), 0o755)?;
     super::setup::sync_guest_network_config(root);
     Ok(())
 }
