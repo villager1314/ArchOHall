@@ -1,0 +1,52 @@
+name: Inspect first ArchOHall2 signing leftovers
+on:
+  push:
+    branches: [experiment/portal-arch-mobile-build]
+    paths: ['.github/workflows/archohall2-first-key-inspect.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Restore exact first-build cache (read only)
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/x
+            ~/.cache/x
+            portal/target
+          key: archohall2-android-v1-b2cc4313f895daf0deab88fb69fc1eb40bc349abf304254ebf69e22b35d714c6-41167326200
+          fail-on-cache-miss: true
+      - name: Inspect candidate paths and public certificate fingerprints only
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib, os, subprocess
+          from pathlib import Path
+          roots=[Path.home()/'.cache/x', Path('portal/target'), Path.home()/'.android']
+          target='55fa7872aaa7a2075c169e8f0f15d9530ff4d3dd6d6beb8857bc38e2faa94c34'
+          found=0
+          matched=False
+          for root in roots:
+              if not root.exists(): continue
+              for directory, dirs, files in os.walk(root, followlinks=False):
+                  for name in files:
+                      if not name.lower().endswith(('.keystore','.jks')): continue
+                      p=Path(directory)/name
+                      if p.is_symlink(): continue
+                      found+=1
+                      print('candidate_path='+str(p),flush=True)
+                      r=subprocess.run(['keytool','-exportcert','-alias','androiddebugkey','-keystore',str(p),'-storepass','android'],capture_output=True,timeout=30)
+                      if r.returncode==0:
+                          digest=hashlib.sha256(r.stdout).hexdigest()
+                          print('public_certificate_sha256='+digest,flush=True)
+                          matched=matched or digest==target
+                      else:
+                          print('not_readable_as_standard_android_debug_keystore',flush=True)
+          print('candidate_count='+str(found))
+          print('first_build_key_found='+str(matched).lower())
+          PY
