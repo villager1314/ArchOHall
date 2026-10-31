@@ -1,0 +1,69 @@
+name: ArchOHall2 KWin 6.8 damage shim experiment
+on:
+  push:
+    branches: [experiment/portal-arch-mobile-build]
+    paths: ['diagnostics/archohall2/damage/**', '.github/workflows/archohall2-damage-test.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  component:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Read pinned original transport code only
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: Retrorerr/Portal
+          ref: 9dff54c749c60b1eaf07e42b9f4e8de41e85af0a
+          path: original
+          persist-credentials: false
+          sparse-checkout: assets/guest-arm64/anland-damage.c
+          sparse-checkout-cone-mode: false
+      - name: Reuse already compiled KWin for real ELF checks
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: arch-mobile-kwin-diagnostic-41162670069
+          run-id: 41162670069
+          github-token: ${{ github.token }}
+          path: kwin-artifact
+      - name: Compile only the small ARM64 preload and run native socket tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = aarch64
+          command -v g++
+          bash diagnostics/archohall2/damage/build.sh original/assets/guest-arm64/anland-damage.c out
+          python3 diagnostics/archohall2/damage/test.py out | tee out/test-results.txt
+      - name: Check exact existing KWin exports and dynamic relocations
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive=$(find kwin-artifact -name kwin-6.8.2-anland-arm64-experimental.tar.xz -print -quit)
+          checksum=$(find kwin-artifact -name SHA256SUMS -print -quit)
+          test -n "$archive" && test -n "$checksum"
+          expected=$(awk 'NR==1 {print $1}' "$checksum")
+          printf '%s  %s\n' "$expected" "$archive" | sha256sum -c -
+          mkdir kwin
+          tar -xJf "$archive" -C kwin
+          library=$(find kwin -type f -name libkwin.so.6.8.2 -print -quit)
+          test -n "$library"
+          python3 diagnostics/archohall2/damage/verify-abi.py "$library" out out/kwin-abi-report.json
+      - name: Upload component and evidence (not an APK or validated desktop)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: archohall2-damage-68-${{ github.run_id }}
+          path: |
+            out/anland-damage-68.so
+            out/anland-damage-68.cpp
+            out/kwin-api.hpp
+            out/symbols.hpp
+            out/required-symbols.txt
+            out/elf-*.txt
+            out/SHA256SUMS
+            out/test-results.txt
+            out/kwin-abi-report.json
+          retention-days: 14
