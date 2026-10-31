@@ -1,0 +1,85 @@
+name: Arch Mobile experimental rootfs (reuse KWin)
+on:
+  push:
+    branches: [experiment/portal-arch-mobile-build]
+    paths: ['diagnostics/arch-mobile-rootfs/**', '.github/workflows/arch-mobile-rootfs-experimental.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: arch-mobile-rootfs-experimental
+  cancel-in-progress: false
+jobs:
+  rootfs:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Reuse successful KWin artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: arch-mobile-kwin-diagnostic-41162670069
+          run-id: 41162670069
+          github-token: ${{ github.token }}
+          path: kwin-artifact
+      - name: Restore existing package cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: .build-cache
+          key: arch-mobile-aarch64-v1-${{ hashFiles('diagnostics/arch-mobile-ci/package-candidate.json') }}-rootfs-${{ github.run_id }}
+          restore-keys: |
+            arch-mobile-aarch64-v1-${{ hashFiles('diagnostics/arch-mobile-ci/package-candidate.json') }}-
+      - name: Prepare rootfs and verify reused binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p rootfs input out .build-cache/pacman
+          archive=$(find kwin-artifact -name kwin-6.8.2-anland-arm64-experimental.tar.xz -print -quit)
+          test -n "$archive"
+          # Validate the inner archive against the checksum from the successful build.
+          checksum=$(find kwin-artifact -name SHA256SUMS -print -quit)
+          expected=$(awk '{print $1}' "$checksum")
+          echo "$expected  $archive" | sha256sum -c -
+          cp "$archive" input/
+          cp diagnostics/arch-mobile-rootfs/* input/
+          cp diagnostics/arch-mobile-ci/package-candidate.json scripts/arch-mobile-session.sh input/
+          python3 - <<'PY'
+          import json
+          json.dump({'kwin_run':41162670069,'kwin_source':'e8b39495de09e6b614004f99464f1620f89635b2','device_validated':False,'gpu_integration_complete':False},open('input/provenance.json','w'),indent=2)
+          PY
+          curl -fL --retry 3 https://fl.us.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz -o base.tar.gz
+          sha256sum base.tar.gz > out/base-sha256.txt
+          sudo tar --numeric-owner -xpf base.tar.gz -C rootfs
+          sudo chown root:root rootfs
+          sudo rm -f rootfs/etc/resolv.conf
+          sudo cp -L /etc/resolv.conf rootfs/etc/resolv.conf
+          sudo mkdir -p rootfs/input rootfs/output
+          sudo mount --bind "$PWD/rootfs" "$PWD/rootfs"
+          sudo ln -sfn /proc/self/mounts rootfs/etc/mtab
+          sudo mount --bind "$PWD/input" rootfs/input
+          sudo mount --bind "$PWD/out" rootfs/output
+          sudo mount --bind "$PWD/.build-cache/pacman" rootfs/var/cache/pacman/pkg
+          sudo mount -t proc proc rootfs/proc
+          sudo mount --rbind /dev rootfs/dev
+          sudo mount --make-rslave rootfs/dev
+      - name: Install matching desktop and reused KWin
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo chroot rootfs /bin/bash /input/install-guest.sh 2>&1 | tee out/rootfs-install.log
+          python3 scripts/arch-mobile-preflight.py rootfs > out/preflight.json
+          sudo umount -R "$PWD/rootfs"
+          # Do not include build mounts or borrowed host resolver settings.
+          sudo rm -f rootfs/etc/resolv.conf
+          sudo tar --zstd --numeric-owner --exclude='./input' --exclude='./output' \
+            --exclude='./var/cache/pacman/pkg/*' -cpf out/archohall-arch-mobile-experimental.tar.zst -C rootfs .
+          sha256sum out/*.tar.zst > out/SHA256SUMS
+      - name: Upload image and diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: arch-mobile-rootfs-experimental-${{ github.run_id }}
+          path: out/
+          retention-days: 14
