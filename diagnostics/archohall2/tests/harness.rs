@@ -1,5 +1,6 @@
-#[path = "../provisioning.rs"]
-pub mod provisioning;
+pub mod provisioning {
+    include!(concat!(env!("OUT_DIR"), "/provisioning.rs"));
+}
 pub mod core {
     pub use crate::provisioning;
 }

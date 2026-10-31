@@ -217,7 +217,7 @@ jobs:
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}/portal/target
         run: |
-          cargo test --manifest-path diagnostics/archohall2/tests/Cargo.toml --lib
+          cargo test --manifest-path diagnostics/archohall2/tests/Cargo.toml --locked --lib
           python3 diagnostics/archohall2/check-profile.py
       - name: Build independent test APK
         working-directory: portal
@@ -258,7 +258,7 @@ jobs:
             portal/target
           key: ${{ steps.rust-cache.outputs.cache-primary-key }}
       - name: Upload test APK and manifest
-        if: always()
+        if: success()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ArchOHall2-test-${{ github.run_id }}
