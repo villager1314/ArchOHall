@@ -12,7 +12,7 @@ if (( ${#remove[@]} )); then pacman -Rns --noconfirm "${remove[@]}"; fi
 # Keep CheckSpace enabled; fail with actual filesystem evidence if storage is low.
 df -Pk / /var/cache/pacman/pkg
 pacman -Syu --needed --noconfirm --disable-sandbox \
-    base-devel cmake ninja extra-cmake-modules git pkgconf kwin plasma-mobile \
+    base-devel cmake ninja ccache extra-cmake-modules git pkgconf kwin plasma-mobile \
     qt6-tools qt6-wayland qt6-declarative qt6-5compat qt6-svg \
     wayland-protocols plasma-wayland-protocols vulkan-headers kdoctools \
     libepoxy libpipewire libxcvt libxkbcommon-x11 xcb-util-cursor python
@@ -25,7 +25,19 @@ for name in ('kwin', 'plasma-mobile', 'plasma-workspace', 'qt6-base', 'qt6-decla
     if installed != expected[name]['version']:
         raise SystemExit(f'Package snapshot drift: {name}: {installed}; expected {expected[name]["version"]}')
 PY
+# Keep successful translation units reusable even if a later unit fails.
+export CCACHE_DIR=/ccache CCACHE_BASEDIR=/src CCACHE_COMPILERCHECK=content
+ccache --max-size=2G
+ccache --zero-stats
+cache_stats() {
+    result=$?
+    trap - EXIT
+    ccache --show-stats > /out/ccache-stats.txt 2>&1 || true
+    exit "$result"
+}
+trap cache_stats EXIT
 cmake -S /src -B /build -G Ninja \
+    -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
     -DCMAKE_BUILD_TYPE=Release '-DCMAKE_CXX_FLAGS_RELEASE=-O1 -DNDEBUG' \
     -DCMAKE_INSTALL_PREFIX=/opt/archohall-mobile -DKDE_INSTALL_LIBDIR=lib \
     -DBUILD_TESTING=OFF -DKWIN_BUILD_KCMS=OFF -DKWIN_BUILD_SCREENLOCKER=OFF \
