@@ -3,6 +3,14 @@ set -euo pipefail
 [[ $(uname -m) == aarch64 ]]
 pacman-key --init
 pacman-key --populate archlinuxarm
+# Only this disposable build sysroot: do not upgrade its unused kernel/firmware.
+remove=()
+for package in linux-aarch64 linux-firmware; do
+    if pacman -Q "$package" >/dev/null 2>&1; then remove+=("$package"); fi
+done
+if (( ${#remove[@]} )); then pacman -Rns --noconfirm "${remove[@]}"; fi
+# Keep CheckSpace enabled; fail with actual filesystem evidence if storage is low.
+df -Pk / /var/cache/pacman/pkg
 pacman -Syu --needed --noconfirm --disable-sandbox \
     base-devel cmake ninja extra-cmake-modules git pkgconf kwin plasma-mobile \
     qt6-tools qt6-wayland qt6-declarative qt6-5compat qt6-svg \

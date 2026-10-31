@@ -39,12 +39,17 @@ jobs:
           sudo rm -f sysroot/etc/resolv.conf
           sudo cp -L /etc/resolv.conf sysroot/etc/resolv.conf
           sudo mkdir -p sysroot/src sysroot/input sysroot/out sysroot/build
+          # pacman's CheckSpace needs a mount point for the chroot root itself.
+          sudo mount --bind "$PWD/sysroot" "$PWD/sysroot"
+          sudo ln -sfn /proc/self/mounts sysroot/etc/mtab
           sudo mount --bind "$PWD/src" sysroot/src
           sudo mount --bind "$PWD/diagnostics/arch-mobile-ci" sysroot/input
           sudo mount --bind "$PWD/out" sysroot/out
           sudo mount -t proc proc sysroot/proc
           sudo mount --rbind /dev sysroot/dev
           sudo mount --make-rslave sysroot/dev
+          df -h "$PWD/sysroot" | tee out/host-disk-space.txt
+          sudo chroot sysroot /bin/bash -c 'df -h / /var/cache/pacman/pkg; cat /proc/self/mountinfo' > out/guest-mount-space.txt
       - name: Compile KWin only
         shell: bash
         run: |
