@@ -45,6 +45,8 @@ edit('src/core/config.rs','https://github.com/Retrorerr/Portal#readme','https://
 edit('src/core/runtime.rs','distro_name: "Debian 13 (Trixie) ARM64".to_string()','distro_name: "Arch Linux ARM + Plasma Mobile".to_string()')
 edit('src/lib.rs','pub mod setup;','pub mod setup;\n        pub mod archohall2;\n        pub mod arch_fs;\n        pub mod arch_gpu;')
 setup='src/android/proot/setup.rs'
+import runpy
+runpy.run_path(str(here/'reuse-upstream.py'))['adapt'](root)
 function(setup,'fn stages()', '''    vec![
         ("arch-runtime", Box::new(setup_debian_runtime)),
         ("renderer-mode", Box::new(setup_renderer_mode)),
@@ -54,6 +56,16 @@ function(setup,'fn stages()', '''    vec![
             super::archohall2::prepare()
         })))),
     ]''')
+edit(setup, 'fn build_wayland_backend(android_app: AndroidApp) -> anyhow::Result<PolarBearBackend> {', '''fn build_wayland_backend(android_app: AndroidApp) -> anyhow::Result<PolarBearBackend> {
+    if let Some(handle) = fix_xkb_symlink() {
+        handle.join().map_err(|_| anyhow::anyhow!("XKB link repair thread failed"))??;
+    }
+    let data = Path::new(PRODUCTION_FS_ROOT).join("usr/share/X11/xkb");
+    for relative in ["rules/evdev", "symbols/us", "keycodes/evdev", "types/complete", "compat/complete"] {
+        fs::File::open(data.join(relative)).with_context(|| format!("Host XKB data missing or unreadable: {}", data.join(relative).display()))?;
+    }
+    super::archohall2::validate_host_keyboard()?;
+''')
 function(setup,'fn simulate_linux_sysdata_stage(', '''    let _ = options;
     Some(thread::spawn(|| super::arch_fs::sysdata(Path::new(PRODUCTION_FS_ROOT))))''')
 function(setup,'fn setup_machine_id(', '''    Some(thread::spawn(|| super::arch_fs::machine_id(Path::new(PRODUCTION_FS_ROOT))))''')

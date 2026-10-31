@@ -8,7 +8,7 @@ import tempfile
 
 here = Path(__file__).resolve().parent
 root = here.parents[1]
-for path in [here / 'prepare-portal.py', here / 'prepare-runtime.py', root / 'diagnostics/arch-mobile-rootfs/normalize-runtime.py']:
+for path in [here / 'prepare-portal.py', here / 'prepare-runtime.py', here / 'reuse-upstream.py', root / 'diagnostics/arch-mobile-rootfs/normalize-runtime.py']:
     ast.parse(path.read_text(), filename=str(path))
 for path in (here / 'overlay/assets').glob('*.sh'):
     subprocess.run(['bash', '-n', str(path)], check=True)
