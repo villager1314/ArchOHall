@@ -17,7 +17,11 @@ export LD_LIBRARY_PATH=/opt/archohall-mobile/lib
 export LIBGL_DRIVERS_PATH=/opt/archohall-mobile/lib/dri
 export __EGL_VENDOR_LIBRARY_FILENAMES=/opt/archohall-mobile/share/glvnd/egl_vendor.d/50_mesa.json
 export LD_PRELOAD=/opt/archohall-mobile/lib/drmshim.so
-export KWIN_DRM_DEVICES=/dev/dri/renderD128
+# KWin 6.8 GpuManager bypasses udev only with KWIN_RENDER_NODES.
+# KWIN_DRM_DEVICES additionally restricts selection via the compatibility map,
+# which may be empty for an Android KGSL shim node.
+unset KWIN_DRM_DEVICES
+export KWIN_RENDER_NODES=/dev/dri/renderD128
 state=/var/lib/localdesktop/session
 mkdir -p "$state"
 # The APK clears stale attempt markers before launching. Only Android's native

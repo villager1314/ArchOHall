@@ -40,3 +40,8 @@ assert 'apt-get' not in services and 'dpkg-divert --' not in services
 for file in ['archohall2-upstream-launcher.sh','localdesktop-startplasma.sh','localdesktop-kwin-wrapper-v2.sh','portal-system-services.sh','localdesktop-clipboard-sync.sh','localdesktop-clipboard-push.sh','localdesktop-recovery.sh']:
     subprocess.run(['bash','-n',str(root/'assets'/file)],check=True)
 print('Clean prepared profile: embedded assets, XKB gates, reused bridges and scripts: PASS')
+
+session=(root/'assets/archohall2-session.sh').read_text()
+assert 'export KWIN_RENDER_NODES=/dev/dri/renderD128' in session
+assert 'unset KWIN_DRM_DEVICES' in session
+assert 'export KWIN_DRM_DEVICES=' not in session

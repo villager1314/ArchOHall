@@ -7,6 +7,7 @@ trap 'printf "stage=%s status=failed exit=%s line=%s\n" "$stage" "$?" "$LINENO" 
 [[ ${MESA_LOADER_DRIVER_OVERRIDE:-} == kgsl && ${GALLIUM_DRIVER:-} == freedreno ]]
 [[ ${FD_FORCE_KGSL:-} == 1 && ${FD_KGSL_ENABLE_DMABUF:-} == 1 && ${TURNIP_KMD:-} == kgsl ]]
 [[ -z ${QT_QUICK_BACKEND:-} && ${LIBGL_ALWAYS_SOFTWARE:-0} != 1 ]]
+[[ ${KWIN_RENDER_NODES:-} == /dev/dri/renderD128 && -z ${KWIN_DRM_DEVICES:-} ]]
 stage=devices
 [[ -r /dev/kgsl-3d0 && -w /dev/kgsl-3d0 ]]
 [[ -S ${ANLAND_SOCKET:?Android display socket is missing} ]]
