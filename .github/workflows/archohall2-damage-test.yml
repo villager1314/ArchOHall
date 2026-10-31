@@ -67,3 +67,5 @@ jobs:
             out/test-results.txt
             out/kwin-abi-report.json
           retention-days: 14
+
+# Run the user-requested standalone component experiment; keep APK/rootfs builds paused.
