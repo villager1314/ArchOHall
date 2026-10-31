@@ -1,0 +1,38 @@
+--- a/src/core/gpumanager.cpp
++++ b/src/core/gpumanager.cpp
+@@ -81,7 +81,7 @@
+     , m_udmabufDevId(getDevId(m_udmabuf))
+     , m_udev(std::make_unique<Udev>())
+     , m_udevMonitor(m_udev->createMonitor())
+-    , m_udevNotifier(std::make_unique<QSocketNotifier>(m_udevMonitor->fd(), QSocketNotifier::Read))
++    , m_udevNotifier(m_udevMonitor ? std::make_unique<QSocketNotifier>(m_udevMonitor->fd(), QSocketNotifier::Read) : nullptr)
+     , m_explicitRenderNodes(qEnvironmentVariableIsSet("KWIN_RENDER_NODES") ? splitPathList(qEnvironmentVariable("KWIN_RENDER_NODES")) : std::optional<QStringList>())
+ {
+     if (m_udmabuf.isValid()) {
+@@ -90,9 +90,13 @@
+             addDevice(std::move(device));
+         }
+     }
+-    m_udevMonitor->filterSubsystemDevType("drm");
+-    connect(m_udevNotifier.get(), &QSocketNotifier::activated, this, &GpuManager::handleUdevEvent);
+-    m_udevMonitor->enable();
++    if (m_udevMonitor) {
++        m_udevMonitor->filterSubsystemDevType("drm");
++        connect(m_udevNotifier.get(), &QSocketNotifier::activated, this, &GpuManager::handleUdevEvent);
++        m_udevMonitor->enable();
++    } else {
++        qCWarning(KWIN_CORE) << "No udev monitor; GPU hotplug disabled";
++    }
+     scanForRenderDevices();
+ }
+ 
+@@ -254,6 +258,9 @@
+ 
+ void GpuManager::handleUdevEvent()
+ {
++    if (!m_udevMonitor) {
++        return;
++    }
+     while (auto udevDevice = m_udevMonitor->getDevice()) {
+         if (udevDevice->action() == QLatin1StringView("change")) {
+             auto gpu = compatibleRenderDevice(udevDevice->devNum());

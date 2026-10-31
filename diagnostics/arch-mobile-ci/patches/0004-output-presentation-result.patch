@@ -1,0 +1,40 @@
+--- a/src/backends/anland/anland_output.h
++++ b/src/backends/anland/anland_output.h
+@@ -36,8 +36,8 @@
+     ~AnlandOutput() override;
+ 
+     RenderLoop *renderLoop() const override;
+-    bool testPresentation(const std::shared_ptr<OutputFrame> &frame) override;
+-    bool present(const QList<OutputLayer *> &layersToUpdate, const std::shared_ptr<OutputFrame> &frame) override;
++    std::expected<void, OutputError> testPresentation(const std::shared_ptr<OutputFrame> &frame) override;
++    std::expected<void, OutputError> present(const QList<OutputLayer *> &layersToUpdate, const std::shared_ptr<OutputFrame> &frame) override;
+ 
+     /** @p pixelSize and @p refresh (in mHz) come from the display daemon. */
+     void init(const QSize &pixelSize, int refresh, qreal scale);
+--- a/src/backends/anland/anland_output.cpp
++++ b/src/backends/anland/anland_output.cpp
+@@ -38,12 +38,12 @@
+     return m_renderLoop.get();
+ }
+ 
+-bool AnlandOutput::testPresentation(const std::shared_ptr<OutputFrame> &frame)
++std::expected<void, OutputError> AnlandOutput::testPresentation(const std::shared_ptr<OutputFrame> &frame)
+ {
+-    return true;
++    return {};
+ }
+ 
+-bool AnlandOutput::present(const QList<OutputLayer *> &layersToUpdate, const std::shared_ptr<OutputFrame> &frame)
++std::expected<void, OutputError> AnlandOutput::present(const QList<OutputLayer *> &layersToUpdate, const std::shared_ptr<OutputFrame> &frame)
+ {
+     // The scene has already been rendered into the daemon's dmabuf by the layer
+     // (AnlandEglLayer::doEndFrame). Hand it to the consumer now.
+@@ -58,7 +58,7 @@
+         // arrive for it — complete it now so the RenderLoop never stalls.
+         completeFrame();
+     }
+-    return true;
++    return {};
+ }
+ 
+ void AnlandOutput::init(const QSize &pixelSize, int refresh, qreal scale)

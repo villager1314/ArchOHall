@@ -1,0 +1,88 @@
+--- a/src/inputmethod.h
++++ b/src/inputmethod.h
+@@ -191,13 +191,6 @@
+      */
+     void commitPendingText();
+ 
+-    // Inject committed text from a compositor-side input source that does not
+-    // speak zwp_input_method_v1 (e.g. the anland Android consumer's keyboard).
+-    // Enters KWin's routing at the same point a real IME's commit_string does:
+-    // delivered to the focused text-input client, or synthesized as key events
+-    // when the client has no text-input interface enabled.
+-    void commitText(const QString &text);
+-
+     // for use by the QPA
+     InternalInputMethodContext *internalContext() const
+     {
+--- a/src/backends/anland/anland_backend.cpp
++++ b/src/backends/anland/anland_backend.cpp
+@@ -750,7 +750,7 @@
+         return;
+ 
+     if (InputMethod *im = kwinApp()->inputMethod()) {
+-        im->commitText(str);
++        im->sendText(str);
+     }
+ }
+ 
+--- a/src/plugins/qpa/window.cpp
++++ b/src/plugins/qpa/window.cpp
+@@ -49,7 +49,7 @@
+ {
+     const QSize nativeSize = geometry().size() * devicePixelRatio();
+     const bool isRaster = window()->surfaceType() == QSurface::RasterSurface; // RasterGLSurface is unsupported by us
+-    DrmDevice *device = isRaster ? nullptr : Compositor::self()->backend()->drmDevice();
++    RenderDevice *device = isRaster ? nullptr : Compositor::self()->primaryDevice();
+     const bool software = isRaster || !device;
+     if (!m_swapchain || m_swapchain->size() != nativeSize
+         || !formats.containsFormat(m_swapchain->format(), m_swapchain->modifier())
+@@ -59,7 +59,7 @@
+             static ShmGraphicsBufferAllocator shmAllocator;
+             allocator = &shmAllocator;
+         } else {
+-            allocator = Compositor::self()->primaryDevice()->allocator();
++            allocator = device->allocator();
+         }
+ 
+         for (auto it = formats.begin(); it != formats.end(); it++) {
+--- a/src/plugins/qpa/backingstore.h
++++ b/src/plugins/qpa/backingstore.h
+@@ -36,6 +36,9 @@
+     void endPaint() override;
+ 
+ private:
++    QImage *fallbackImage();
++    QImage m_fallbackImage;
++    QSize m_size;
+     GraphicsBufferRef m_buffer;
+     std::unique_ptr<GraphicsBufferView> m_bufferView;
+ };
+--- a/src/plugins/qpa/backingstore.cpp
++++ b/src/plugins/qpa/backingstore.cpp
+@@ -68,6 +68,8 @@
+     const auto slot = swapchain->acquire();
+     if (!slot) {
+         qCCritical(KWIN_QPA, "Failed to acquire a graphics buffer for the backing store");
++        m_buffer = nullptr;
++        m_bufferView.reset();
+         return;
+     }
+     m_buffer = slot->buffer();
+@@ -75,12 +77,16 @@
+     m_bufferView = std::make_unique<GraphicsBufferView>(m_buffer.get(), GraphicsBuffer::Read | GraphicsBuffer::Write);
+     if (m_bufferView->isNull()) {
+         qCCritical(KWIN_QPA) << "Failed to map a graphics buffer for the backing store";
++        m_buffer = nullptr;
++        m_bufferView.reset();
+         return;
+     }
+ 
+     if (oldBuffer && oldBuffer != m_buffer && oldBuffer->size() == m_buffer->size()) {
+         const GraphicsBufferView oldView(oldBuffer.get(), GraphicsBuffer::Read);
+-        std::memcpy(m_bufferView->image()->bits(), oldView.image()->constBits(), oldView.image()->sizeInBytes());
++        if (!oldView.isNull()) {
++            std::memcpy(m_bufferView->image()->bits(), oldView.image()->constBits(), oldView.image()->sizeInBytes());
++        }
+     }
+ 
+     QImage *image = m_bufferView->image();

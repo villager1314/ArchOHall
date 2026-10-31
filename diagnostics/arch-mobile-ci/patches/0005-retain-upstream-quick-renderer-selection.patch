@@ -1,0 +1,16 @@
+--- a/src/compositor.cpp
++++ b/src/compositor.cpp
+@@ -366,12 +366,7 @@
+         case NoCompositing:
+             break;
+         case OpenGLCompositing:
+-            if (m_backend->drmDevice()) {
+-                QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
+-            } else {
+-                qCWarning(KWIN_CORE) << "No DRM device available; forcing Qt Quick to use the software renderer";
+-                QQuickWindow::setGraphicsApi(QSGRendererInterface::Software);
+-            }
++            QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
+             break;
+         case QPainterCompositing:
+             QQuickWindow::setGraphicsApi(QSGRendererInterface::Software);

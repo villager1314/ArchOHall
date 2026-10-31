@@ -1,0 +1,240 @@
+--- a/src/backends/anland/anland_backend.h
++++ b/src/backends/anland/anland_backend.h
+@@ -47,13 +47,11 @@
+ 
+     bool initialize() override;
+ 
+-    std::unique_ptr<EglBackend> createOpenGLBackend() override;
++    std::unique_ptr<EglBackend> createOpenGLBackend(RenderDevice *device) override;
+     std::unique_ptr<InputBackend> createInputBackend() override;
+     QList<CompositingType> supportedCompositors() const override;
+     QList<BackendOutput *> outputs() const override;
+ 
+-    EglDisplay *sceneEglDisplayObject() const override;
+-    void setEglDisplay(std::unique_ptr<EglDisplay> &&display);
+ 
+     display_ctx *display() const
+     {
+@@ -110,7 +108,6 @@
+     display_ctx *m_display = nullptr;
+ 
+     std::unique_ptr<DrmDevice> m_drmDevice;
+-    std::unique_ptr<EglDisplay> m_eglDisplay;
+     QVector<AnlandOutput *> m_outputs;
+     std::unique_ptr<AnlandInputDevice> m_inputDevice;
+ 
+--- a/src/backends/anland/anland_backend.cpp
++++ b/src/backends/anland/anland_backend.cpp
+@@ -196,9 +196,13 @@
+     return true;
+ }
+ 
+-std::unique_ptr<EglBackend> AnlandBackend::createOpenGLBackend()
+-{
+-    return std::make_unique<AnlandEglBackend>(this);
++std::unique_ptr<EglBackend> AnlandBackend::createOpenGLBackend(RenderDevice *device)
++{
++    if (!device) {
++        qCWarning(KWIN_ANLAND) << "No RenderDevice selected for Anland";
++        return nullptr;
++    }
++    return std::make_unique<AnlandEglBackend>(this, device);
+ }
+ 
+ std::unique_ptr<InputBackend> AnlandBackend::createInputBackend()
+@@ -219,16 +223,6 @@
+         ret.append(output);
+     }
+     return ret;
+-}
+-
+-EglDisplay *AnlandBackend::sceneEglDisplayObject() const
+-{
+-    return m_eglDisplay.get();
+-}
+-
+-void AnlandBackend::setEglDisplay(std::unique_ptr<EglDisplay> &&display)
+-{
+-    m_eglDisplay = std::move(display);
+ }
+ 
+ bool AnlandBackend::notifyFramePresented()
+--- a/src/backends/anland/anland_egl_backend.h
++++ b/src/backends/anland/anland_egl_backend.h
+@@ -45,10 +45,9 @@
+     AnlandEglLayer(AnlandOutput *output, AnlandEglBackend *backend);
+     ~AnlandEglLayer() override;
+ 
+-    std::optional<OutputLayerBeginFrameInfo> doBeginFrame() override;
+-    bool doEndFrame(const Region &renderedDeviceRegion, const Region &damagedDeviceRegion, OutputFrame *frame) override;
+-    DrmDevice *scanoutDevice() const override;
+-    QHash<uint32_t, QList<uint64_t>> supportedDrmFormats() const override;
++    std::optional<OutputLayerBeginFrameInfo> beginFrame(OutputFrame *frame = nullptr) override;
++    bool endFrame(const Region &renderedDeviceRegion, const Region &damagedDeviceRegion, OutputFrame *frame) override;
++    FormatModifierMap supportedDrmFormats() const override;
+     bool importBuffers(int count);
+     void releaseBuffers() override;
+ 
+@@ -75,12 +74,11 @@
+     Q_OBJECT
+ 
+ public:
+-    AnlandEglBackend(AnlandBackend *b);
++    AnlandEglBackend(AnlandBackend *b, RenderDevice *device);
+     ~AnlandEglBackend() override;
+ 
+-    void init() override;
++    bool init() override;
+     QList<OutputLayer *> compatibleOutputLayers(BackendOutput *output) override;
+-    DrmDevice *drmDevice() const override;
+ 
+     AnlandBackend *backend() const
+     {
+@@ -89,7 +87,6 @@
+     display_ctx *display() const;
+ 
+ private:
+-    bool initializeEgl();
+     bool initRenderingContext();
+ 
+     void addOutput(BackendOutput *output);
+--- a/src/backends/anland/anland_egl_backend.cpp
++++ b/src/backends/anland/anland_egl_backend.cpp
+@@ -71,7 +71,9 @@
+ {
+     // Destroying the GL textures/framebuffers needs the context current. Callers
+     // (backend state machine on fallback, ~AnlandEglLayer) may run outside a frame.
+-    m_backend->openglContext()->makeCurrent();
++    if (auto context = m_backend->openglContext()) {
++        (void)context->makeCurrent();
++    }
+ 
+     for (int i = 0; i < MAX_BUFS; i++) {
+         m_fbos[i].reset();
+@@ -148,7 +150,7 @@
+         // EglBackend::importDmaBufAsTexture() builds the EGLImage and wraps it in
+         // a GLTexture in one step (the 5.27-era manual EGLImageKHR +
+         // EGLImageTexture(...) dance is gone in 6.x).
+-        std::shared_ptr<GLTexture> texture = m_backend->importDmaBufAsTexture(attrs);
++        std::shared_ptr<GLTexture> texture = m_backend->openglContext()->importDmaBufAsTexture(attrs);
+         if (!texture) {
+             qCWarning(KWIN_ANLAND) << "failed to import dmabuf" << i << "as texture";
+             releaseBuffers();
+@@ -194,9 +196,11 @@
+     scheduleRepaint(nullptr);
+ }
+ 
+-std::optional<OutputLayerBeginFrameInfo> AnlandEglLayer::doBeginFrame()
+-{
+-    m_backend->openglContext()->makeCurrent();
++std::optional<OutputLayerBeginFrameInfo> AnlandEglLayer::beginFrame(OutputFrame *frame)
++{
++    if (!m_backend->openglContext()->makeCurrent()) {
++        return std::nullopt;
++    }
+ 
+     m_currentIndex = get_selected_idx(m_display);
+ 
+@@ -217,7 +221,7 @@
+     };
+ }
+ 
+-bool AnlandEglLayer::doEndFrame(const Region &renderedDeviceRegion, const Region &damagedDeviceRegion, OutputFrame *frame)
++bool AnlandEglLayer::endFrame(const Region &renderedDeviceRegion, const Region &damagedDeviceRegion, OutputFrame *frame)
+ {
+     glFlush(); // flush pending rendering commands into the dmabuf.
+     for (int i = 0; i < m_bufCount; i++)
+@@ -249,18 +253,14 @@
+     return true;
+ }
+ 
+-DrmDevice *AnlandEglLayer::scanoutDevice() const
+-{
+-    return m_backend->drmDevice();
+-}
+-
+-QHash<uint32_t, QList<uint64_t>> AnlandEglLayer::supportedDrmFormats() const
++FormatModifierMap AnlandEglLayer::supportedDrmFormats() const
+ {
+     return {};
+ }
+ 
+-AnlandEglBackend::AnlandEglBackend(AnlandBackend *b)
+-    : m_backend(b)
++AnlandEglBackend::AnlandEglBackend(AnlandBackend *b, RenderDevice *device)
++    : EglBackend(device)
++    , m_backend(b)
+ {
+ }
+ 
+@@ -275,45 +275,21 @@
+     return m_backend->display();
+ }
+ 
+-DrmDevice *AnlandEglBackend::drmDevice() const
+-{
+-    return m_backend->drmDevice();
+-}
+-
+-bool AnlandEglBackend::initializeEgl()
+-{
+-    initClientExtensions();
+-
+-    if (!m_backend->sceneEglDisplayObject()) {
+-        if (!hasClientExtension(QByteArrayLiteral("EGL_MESA_platform_surfaceless"))) {
+-            qCWarning(KWIN_ANLAND) << "Extension EGL_MESA_platform_surfaceless not available";
+-            return false;
+-        }
+-        m_backend->setEglDisplay(EglDisplay::create(eglGetPlatformDisplayEXT(EGL_PLATFORM_SURFACELESS_MESA, EGL_DEFAULT_DISPLAY, nullptr)));
+-    }
+-
+-    auto display = m_backend->sceneEglDisplayObject();
+-    if (!display) {
++bool AnlandEglBackend::init()
++{
++    // The compositor owns device selection; its RenderDevice owns EGL and
++    // shared contexts. Do not construct an unrelated surfaceless display.
++    if (!initClientExtensions()) {
++        qCWarning(KWIN_ANLAND) << "Could not initialize EGL client extensions";
+         return false;
+     }
+-    setEglDisplay(display);
+-    return true;
+-}
+-
+-void AnlandEglBackend::init()
+-{
+-    if (!initializeEgl()) {
+-        setFailed("Could not initialize egl");
+-        return;
+-    }
+     if (!initRenderingContext()) {
+-        setFailed("Could not initialize rendering context");
+-        return;
+-    }
+-
++        qCWarning(KWIN_ANLAND) << "Could not initialize rendering context";
++        return false;
++    }
+     if (checkGLError("Init")) {
+-        setFailed("Error during init of AnlandEglBackend");
+-        return;
++        qCWarning(KWIN_ANLAND) << "GL error during Anland initialization";
++        return false;
+     }
+ 
+     initWayland();
+@@ -325,11 +301,12 @@
+ 
+     connect(m_backend, &AnlandBackend::outputAdded, this, &AnlandEglBackend::addOutput);
+     connect(m_backend, &AnlandBackend::outputRemoved, this, &AnlandEglBackend::removeOutput);
++    return true;
+ }
+ 
+ bool AnlandEglBackend::initRenderingContext()
+ {
+-    return createContext(EGL_NO_CONFIG_KHR) && openglContext()->makeCurrent();
++    return createContext() && openglContext()->makeCurrent();
+ }
+ 
+ void AnlandEglBackend::addOutput(BackendOutput *output)

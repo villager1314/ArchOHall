@@ -1,0 +1,74 @@
+{
+  "source": "KDE kwin 6.8.2",
+  "source_archive_sha256": "ea5e68d957c7d70abed97222a592d4445fda29129e20942658badd224ee138b4",
+  "patches_commit": "392b9ef800967662a014dd8cb50a589ff6a82fa8",
+  "results": [
+    {
+      "patch": "fix-drm-open-fallback-to-logind-fd.patch",
+      "sha256": "308dddf9568646234ee68cd1781e19e7c6d1a5430dbc11e78e423d1ffb8e0d03",
+      "exit": 1,
+      "log": "patching file src/core/drmdevice.cpp\nHunk #1 FAILED at 92.\nHunk #2 succeeded at 191 (offset 82 lines).\n1 out of 2 hunks FAILED -- saving rejects to file src/core/drmdevice.cpp.rej\n"
+    },
+    {
+      "patch": "Add-support-for-Anland-display-daemon.patch",
+      "sha256": "bcf3c71303e70bfed6bad11cba52bada8df4c931a54dadb638e90e0ca56b2534",
+      "exit": 1,
+      "log": "patching file src/backends/CMakeLists.txt\npatching file src/backends/anland/CMakeLists.txt\npatching file src/backends/anland/anland_audio.c\npatching file src/backends/anland/anland_audio.h\npatching file src/backends/anland/anland_backend.cpp\npatching file src/backends/anland/anland_backend.h\npatching file src/backends/anland/anland_camera.c\npatching file src/backends/anland/anland_camera.h\npatching file src/backends/anland/anland_egl_backend.cpp\npatching file src/backends/anland/anland_egl_backend.h\npatching file src/backends/anland/anland_input.cpp\npatching file src/backends/anland/anland_input.h\npatching file src/backends/anland/anland_logging.cpp\npatching file src/backends/anland/anland_logging.h\npatching file src/backends/anland/anland_output.cpp\npatching file src/backends/anland/anland_output.h\npatching file src/backends/anland/display_producer.c\npatching file src/backends/anland/display_producer.h\npatching file src/backends/anland/protocol.h\npatching file src/backends/anland/socket_utils.c\npatching file src/backends/anland/socket_utils.h\npatching file src/inputmethod.cpp\nHunk #1 FAILED at 615.\n1 out of 1 hunk FAILED -- saving rejects to file src/inputmethod.cpp.rej\npatching file src/inputmethod.h\nHunk #1 succeeded at 191 with fuzz 1 (offset 120 lines).\npatching file src/main_wayland.cpp\nHunk #2 succeeded at 412 (offset 54 lines).\nHunk #3 succeeded at 438 (offset 56 lines).\nHunk #4 succeeded at 503 (offset 56 lines).\nHunk #5 succeeded at 512 (offset 56 lines).\nHunk #6 succeeded at 624 (offset 57 lines).\n"
+    },
+    {
+      "patch": "Add-support-for-running-without-a-DRM-device.patch",
+      "sha256": "32eb08cd79cdfa22cbe4e42a1497fcfb6fc9632ed42cba993526dda489292a72",
+      "exit": 1,
+      "log": "patching file src/backends/anland/anland_backend.cpp\npatching file src/backends/anland/anland_backend.h\npatching file src/compositor.cpp\nHunk #1 FAILED at 131.\n1 out of 1 hunk FAILED -- saving rejects to file src/compositor.cpp.rej\npatching file src/opengl/eglbackend.cpp\nHunk #1 FAILED at 231.\n1 out of 1 hunk FAILED -- saving rejects to file src/opengl/eglbackend.cpp.rej\npatching file src/opengl/egldisplay.cpp\nHunk #1 FAILED at 76.\n1 out of 1 hunk FAILED -- saving rejects to file src/opengl/egldisplay.cpp.rej\npatching file src/wayland_server.cpp\nHunk #1 FAILED at 857.\nHunk #2 FAILED at 868.\n2 out of 2 hunks FAILED -- saving rejects to file src/wayland_server.cpp.rej\n"
+    },
+    {
+      "patch": "Fall-back-to-memfd-without-a-DRM-device.patch",
+      "sha256": "22d7f061f236d2e33a34e13fe68e3b101eee034d763625f04767c76af2de6c75",
+      "exit": 1,
+      "log": "patching file src/plugins/screencast/screencaststream.cpp\nHunk #1 FAILED at 873.\n1 out of 1 hunk FAILED -- saving rejects to file src/plugins/screencast/screencaststream.cpp.rej\n"
+    },
+    {
+      "patch": "backends-anland-Harden-and-trace-consumer-reconnects.patch",
+      "sha256": "560599d2821bb0e563375b72e2679a56328ebe8c2e9fe31bdbb7cd07ac358673",
+      "exit": 0,
+      "log": "patching file src/backends/anland/anland_backend.cpp\npatching file src/backends/anland/anland_egl_backend.cpp\npatching file src/backends/anland/anland_egl_backend.h\npatching file src/helpers/wayland_wrapper/kwin_wrapper.cpp\nHunk #1 succeeded at 59 (offset 1 line).\nHunk #2 succeeded at 142 (offset 9 lines).\n"
+    },
+    {
+      "patch": "backends-anland-Detach-audio-before-closing-transport-fds.patch",
+      "sha256": "696eeb89baabcf3fd0d67837cc775b0c13dfced2dca77d92f60f09e6fe347bb1",
+      "exit": 0,
+      "log": "patching file src/backends/anland/anland_backend.cpp\npatching file src/backends/anland/display_producer.c\n"
+    },
+    {
+      "patch": "plugins-qpa-avoid-null-paint-devices-after-buffer-failures.patch",
+      "sha256": "f7c2c3050dc6ee9301097f203aef3b6bd09ff9818bc288a07416f6846740cc5a",
+      "exit": 1,
+      "log": "patching file src/plugins/qpa/backingstore.cpp\nHunk #2 FAILED at 68.\nHunk #3 succeeded at 105 (offset 1 line).\n1 out of 3 hunks FAILED -- saving rejects to file src/plugins/qpa/backingstore.cpp.rej\npatching file src/plugins/qpa/backingstore.h\nHunk #2 FAILED at 35.\n1 out of 2 hunks FAILED -- saving rejects to file src/plugins/qpa/backingstore.h.rej\n"
+    },
+    {
+      "patch": "plugins-qpa-fall-back-to-software-without-a-DRM-device.patch",
+      "sha256": "3df913a23316b1d5e116365578200e5465cde4cb683f75d6dfd8f2e5cbaa31e6",
+      "exit": 1,
+      "log": "patching file src/compositor.cpp\nHunk #1 succeeded at 366 (offset 83 lines).\npatching file src/plugins/qpa/eglplatformcontext.cpp\nHunk #1 succeeded at 96 (offset 3 lines).\npatching file src/plugins/qpa/window.cpp\nHunk #1 succeeded at 48 with fuzz 2 (offset 2 lines).\nHunk #2 FAILED at 59.\n1 out of 2 hunks FAILED -- saving rejects to file src/plugins/qpa/window.cpp.rej\n"
+    },
+    {
+      "patch": "backends-anland-fix-audio-socket-handling-on-read-errors.patch",
+      "sha256": "52d456bef72dc0f88c3a5518b43355454fbfbda34b48fdf1ae8ef5503be86ea6",
+      "exit": 0,
+      "log": "patching file src/backends/anland/anland_audio.c\n"
+    },
+    {
+      "patch": "backends-anland-fix-audio-socket-lifetime-during-fallback.patch",
+      "sha256": "13fed231be5daec2cf4153c002e241697e03c1e912dd6507a6b689f803ae3516",
+      "exit": 0,
+      "log": "patching file src/backends/anland/anland_audio.c\npatching file src/backends/anland/anland_audio.h\npatching file src/backends/anland/anland_backend.cpp\npatching file src/backends/anland/display_producer.c\npatching file src/backends/anland/display_producer.h\npatching file src/backends/anland/socket_utils.c\n"
+    },
+    {
+      "patch": "wayland-optimize-dma-buf-synchronization-for-Anland.patch",
+      "sha256": "977336a67e0a1ca4d939294977367ba27d6743b35d1670fb472c18820f4760eb",
+      "exit": 1,
+      "log": "patching file src/scene/surfaceitem.cpp\nHunk #1 FAILED at 141.\n1 out of 1 hunk FAILED -- saving rejects to file src/scene/surfaceitem.cpp.rej\npatching file src/wayland/transaction.cpp\nHunk #1 succeeded at 270 (offset 3 lines).\n"
+    }
+  ],
+  "compile_verified": false
+}

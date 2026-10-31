@@ -1,0 +1,65 @@
+name: Arch Mobile KWin ARM64 diagnostic
+on:
+  push:
+    branches: [experiment/portal-arch-mobile-build]
+    paths: ['diagnostics/arch-mobile-ci/**', '.github/workflows/arch-mobile-kwin-diagnostic.yml']
+permissions:
+  contents: read
+concurrency:
+  group: arch-mobile-kwin-diagnostic
+  cancel-in-progress: false
+jobs:
+  compile:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Prepare pinned source and patch diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out src
+          curl -fL --retry 3 https://download.kde.org/stable/plasma/6.8.2/kwin-6.8.2.tar.xz -o kwin.tar.xz
+          echo 'ea5e68d957c7d70abed97222a592d4445fda29129e20942658badd224ee138b4  kwin.tar.xz' | sha256sum -c -
+          tar --no-same-owner -xJf kwin.tar.xz --strip-components=1 -C src
+          git clone --depth 1 --branch ubuntu/resolute https://github.com/lfdevs/kwin.git upstream
+          test "$(git -C upstream rev-parse HEAD)" = 392b9ef800967662a014dd8cb50a589ff6a82fa8
+          python3 diagnostics/arch-mobile-ci/prepare-source.py src upstream out
+      - name: Prepare disposable ARM64 Arch build sysroot
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = aarch64
+          mkdir -p sysroot
+          curl -fL --retry 3 https://fl.us.mirror.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz -o arch-build-base.tar.gz
+          sha256sum arch-build-base.tar.gz > out/build-base-sha256.txt
+          sudo tar --numeric-owner -xpf arch-build-base.tar.gz -C sysroot
+          sudo rm -f sysroot/etc/resolv.conf
+          sudo cp -L /etc/resolv.conf sysroot/etc/resolv.conf
+          sudo mkdir -p sysroot/src sysroot/input sysroot/out sysroot/build
+          sudo mount --bind "$PWD/src" sysroot/src
+          sudo mount --bind "$PWD/diagnostics/arch-mobile-ci" sysroot/input
+          sudo mount --bind "$PWD/out" sysroot/out
+          sudo mount -t proc proc sysroot/proc
+          sudo mount --rbind /dev sysroot/dev
+          sudo mount --make-rslave sysroot/dev
+      - name: Compile KWin only
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo chroot sysroot /bin/bash /input/build-in-arch.sh 2>&1 | tee out/build.log
+      - name: Save compiler and patch diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: arch-mobile-kwin-diagnostic-${{ github.run_id }}
+          path: |
+            out/*.log
+            out/*.json
+            out/*.txt
+            out/*.tar.xz
+            out/SHA256SUMS
+          if-no-files-found: warn
+          retention-days: 14

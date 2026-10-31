@@ -1,0 +1,58 @@
+{
+  "anland_build_verified": false,
+  "database_sha256": "0d0faded7cfcbeea3de3a5b37fcd1bdabf702935f866190996f3028b5f48d205",
+  "database_url": "https://fl.us.mirror.archlinuxarm.org/aarch64/extra/extra.db",
+  "dependency_closure_resolved": false,
+  "package_signatures_verified": false,
+  "packages": {
+    "kwin": {
+      "arch": "aarch64",
+      "filename": "kwin-6.8.2-1-aarch64.pkg.tar.xz",
+      "sha256sum": "332977b17f73e7347953436265b3a3d7170c0f00b65fafe273142286daf7e6ab",
+      "version": "6.8.2-1"
+    },
+    "mesa": {
+      "arch": "aarch64",
+      "filename": "mesa-1:26.2.6-1-aarch64.pkg.tar.xz",
+      "sha256sum": "45fdfd9bb9694e79283ea7d1b19f4899a10c2535a7a875ce54feba8898e0e926",
+      "version": "1:26.2.6-1"
+    },
+    "plasma-keyboard": {
+      "arch": "aarch64",
+      "filename": "plasma-keyboard-6.8.2-1-aarch64.pkg.tar.xz",
+      "sha256sum": "26fd26c633914ba6b5a5f8ff0dad422bbf524ee53a9ec49454789b58c1d7abc1",
+      "version": "6.8.2-1"
+    },
+    "plasma-mobile": {
+      "arch": "aarch64",
+      "filename": "plasma-mobile-6.8.2-1-aarch64.pkg.tar.xz",
+      "sha256sum": "94d7a8975bc68a4666592922c0a3f5c7a0421bf75edda944bc00f68f5a4e4e50",
+      "version": "6.8.2-1"
+    },
+    "plasma-workspace": {
+      "arch": "aarch64",
+      "filename": "plasma-workspace-6.8.2-1-aarch64.pkg.tar.xz",
+      "sha256sum": "3899600235848dc40d65298d61d718e06a8a1491262e4cb4d06b88cc58862f86",
+      "version": "6.8.2-1"
+    },
+    "qt6-base": {
+      "arch": "aarch64",
+      "filename": "qt6-base-6.12.0-3-aarch64.pkg.tar.xz",
+      "sha256sum": "2777135b375ba82250896fa9a993926bf3c05b59dd22217f63d6a1391c1b4c31",
+      "version": "6.12.0-3"
+    },
+    "qt6-declarative": {
+      "arch": "aarch64",
+      "filename": "qt6-declarative-6.12.0-3-aarch64.pkg.tar.xz",
+      "sha256sum": "f7866fec0922514f6f33d89336cd81d82ed67caf742bff410087ccb4842ddc0d",
+      "version": "6.12.0-3"
+    },
+    "qt6-wayland": {
+      "arch": "aarch64",
+      "filename": "qt6-wayland-6.12.0-1-aarch64.pkg.tar.xz",
+      "sha256sum": "37d8367518085adb00ccd533363e7a58310c6810fc97ca622270ef770dccdf2f",
+      "version": "6.12.0-1"
+    }
+  },
+  "schema": 1
+}
