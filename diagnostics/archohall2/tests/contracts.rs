@@ -198,7 +198,7 @@ fn readiness_confirms_only_current_trial() {
     );
 }
 #[test]
-fn first_gpu_without_fallback_stops_honestly() {
+fn first_gpu_without_fallback_allows_retry_without_false_confirmation() {
     let t = base();
     fs::create_dir_all(t.path().join("opt/archohall-mobile/bin")).unwrap();
     fs::write(
@@ -212,11 +212,21 @@ fn first_gpu_without_fallback_stops_honestly() {
     for _ in 0..3 {
         arch_gpu::before_launch(t.path()).unwrap();
     }
-    assert!(arch_gpu::before_launch(t.path())
-        .unwrap_err()
-        .to_string()
-        .contains("no validated previous GPU"));
+    let trial = t.path().join("opt/archohall-mobile.trial");
+    let before = fs::read(&trial).unwrap();
+    for _ in 0..5 { arch_gpu::before_launch(t.path()).unwrap(); }
+    assert_eq!(fs::read(&trial).unwrap(), before);
+    assert!(!t.path().join("opt/archohall-mobile.denied").exists());
+    assert!(fs::read_to_string(t.path().join("opt/archohall-mobile.recovery-status")).unwrap().contains("status=unconfirmed"));
     arch_gpu::validate(&t.path().join("opt/archohall-mobile")).unwrap();
+    // A real missing current component must still block the launch.
+    let library = t.path().join("opt/archohall-mobile/lib/dri/kgsl_dri.so");
+    let bytes = fs::read(&library).unwrap();
+    fs::remove_file(&library).unwrap();
+    assert!(arch_gpu::before_launch(t.path()).is_err());
+    fs::write(library, bytes).unwrap();
+    arch_gpu::confirm(t.path()).unwrap();
+    assert!(!trial.exists());
 }
 #[test]
 fn corrupt_live_restores_valid_previous() {

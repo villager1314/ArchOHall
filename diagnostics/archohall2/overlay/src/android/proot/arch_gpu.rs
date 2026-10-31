@@ -213,7 +213,21 @@ pub fn before_launch(root: &Path) -> Result<()> {
     }
     let count: u32 = lines.next().context("Missing GPU trial counter")?.parse()?;
     if count >= 3 {
-        validate(&root.join(OLD)).context("GPU failed to show a desktop in three attempts; no validated previous GPU is available")?;
+        if let Err(previous_error) = validate(&root.join(OLD)) {
+            // Missing desktop readiness is not proof of a GPU failure (e.g.
+            // incompatible KWin arguments). Never brick a first installation
+            // just because it has no complete previous GPU to restore.
+            validate(&root.join(LIVE))
+                .context("No usable previous GPU and current GPU components are invalid")?;
+            let message = format!(
+                "status=unconfirmed action=allow-explicit-launch attempts={count} previous_error={previous_error:#}\n"
+            );
+            arch_fs::write(root, "opt/archohall-mobile.recovery-status", message.as_bytes(), 0o644)?;
+            log::warn!("Arch GPU rollback unavailable; retrying validated current components, desktop remains unconfirmed: {previous_error:#}");
+            // Keep the trial and its counter. Only actual readiness confirms
+            // it; returning here does not spawn or automatically retry anything.
+            return Ok(());
+        }
         arch_fs::write(root, DENIED, id.as_bytes(), 0o644)?;
         // Keep failed tree until the atomic replacement can be completed.
         let failed = root.join("opt/archohall-mobile.failed");
