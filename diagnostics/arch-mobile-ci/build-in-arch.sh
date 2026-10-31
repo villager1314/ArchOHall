@@ -31,7 +31,9 @@ cmake -S /src -B /build -G Ninja \
     -DBUILD_TESTING=OFF -DKWIN_BUILD_KCMS=OFF -DKWIN_BUILD_SCREENLOCKER=OFF \
     -DKWIN_BUILD_GLOBALSHORTCUTS=ON -DKWIN_BUILD_TABBOX=ON \
     -DKWIN_BUILD_ACTIVITIES=ON
-cmake --build /build --parallel 4
+# Collect independent compiler errors in one diagnostic run instead of stopping
+# at the first obsolete Anland declaration. Installation still requires success.
+cmake --build /build --parallel 4 -- -k 0
 DESTDIR=/out/staging cmake --install /build
 tar -C /out/staging -cJf /out/kwin-6.8.2-anland-arm64-experimental.tar.xz .
 sha256sum /out/kwin-6.8.2-anland-arm64-experimental.tar.xz > /out/SHA256SUMS
