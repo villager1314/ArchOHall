@@ -1,0 +1,66 @@
+name: Re-sign ArchOHall2 existing APK
+on:
+  push:
+    branches: [experiment/portal-arch-mobile-build]
+    paths: ['.github/workflows/archohall2-resign.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  sign:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout retained signer from pinned main commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: 379db5369e9892adda51f80df7d132d70f800caf
+          persist-credentials: false
+          sparse-checkout: android
+      - name: Require existing fixed signing bundle
+        env:
+          ARCHOHALL_SIGNING_BUNDLE: ${{ secrets.ARCHOHALL_SIGNING_BUNDLE }}
+        run: python3 android/sign_apk.py --check-config
+      - name: Download second APK without rebuilding
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ArchOHall2-test-41173021927
+          run-id: 41173021927
+          github-token: ${{ github.token }}
+          path: original
+      - name: Prepare Android signing tools only
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -x "$ANDROID_HOME/build-tools/36.0.0/apksigner" ]]; then
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'build-tools;36.0.0'
+          fi
+      - name: Verify input and sign with retained ArchOHall identity
+        env:
+          ARCHOHALL_SIGNING_BUNDLE: ${{ secrets.ARCHOHALL_SIGNING_BUNDLE }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          input=$(find original -name ArchOHall2-test.apk -print -quit)
+          checksum=$(find original -name SHA256SUMS -print -quit)
+          test -n "$input"
+          expected=$(awk '$2 ~ /ArchOHall2-test.apk$/ {print $1}' "$checksum")
+          test -n "$expected"
+          echo "$expected  $input" | sha256sum -c -
+          mkdir -p signed
+          python3 android/sign_apk.py "$input" signed/ArchOHall2-test-fixed-sign.apk
+      - name: Verify package and publish public certificate information
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging signed/ArchOHall2-test-fixed-sign.apk > signed/package-info.txt
+          grep -q "package: name='com.archohall2'" signed/package-info.txt
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs signed/ArchOHall2-test-fixed-sign.apk > signed/certificate.txt
+          (cd signed && sha256sum ArchOHall2-test-fixed-sign.apk > SHA256SUMS)
+          echo 'Re-signed existing APK only; no source, GPU, KWin or rootfs compilation.'
+      - name: Upload fixed-signature APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ArchOHall2-test-fixed-sign
+          path: signed/
+          retention-days: 30
