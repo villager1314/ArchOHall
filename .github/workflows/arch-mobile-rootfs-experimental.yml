@@ -70,10 +70,20 @@ jobs:
           set -euo pipefail
           sudo chroot rootfs /bin/bash /input/install-guest.sh 2>&1 | tee out/rootfs-install.log
           python3 scripts/arch-mobile-preflight.py rootfs > out/preflight.json
-          sudo umount -R "$PWD/rootfs"
+          # Package hooks can leave /dev busy. Detach only this disposable
+          # build tree; do not kill processes or unmount host /dev.
+          sudo umount --recursive --lazy "$PWD/rootfs"
+          for mount in rootfs rootfs/dev rootfs/proc rootfs/input rootfs/output rootfs/var/cache/pacman/pkg; do
+            if mountpoint -q "$mount"; then
+              echo "Build mount still attached: $mount" >&2
+              exit 1
+            fi
+          done
           # Do not include build mounts or borrowed host resolver settings.
           sudo rm -f rootfs/etc/resolv.conf
-          sudo tar --zstd --numeric-owner --exclude='./input' --exclude='./output' \
+          sudo tar --zstd --numeric-owner --one-file-system \
+            --exclude='./dev/*' --exclude='./proc/*' --exclude='./sys/*' \
+            --exclude='./run/*' --exclude='./tmp/*' --exclude='./input' --exclude='./output' \
             --exclude='./var/cache/pacman/pkg/*' -cpf out/archohall-arch-mobile-experimental.tar.zst -C rootfs .
           sha256sum out/*.tar.zst > out/SHA256SUMS
       - name: Upload image and diagnostics
