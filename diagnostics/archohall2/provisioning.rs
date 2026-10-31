@@ -523,16 +523,13 @@ impl RuntimeArtifact {
         reset_staging(staging)?;
         let (reader, decoder) = spawn_decoder(fs::File::open(archive)?);
         let mut tar = tar::Archive::new(reader);
-        let mut count = 0u64;
         let mut last = Instant::now();
-        for entry in tar.entries()? {
-            anyhow::ensure!(entry?.unpack_in(staging)?, "Unsafe runtime archive path");
-            count += 1;
+        unpack_runtime_entries(&mut tar, staging, |count| {
             if last.elapsed() >= Duration::from_secs(1) {
                 report(format!("Extracting Arch runtime: {count} entries"));
                 last = Instant::now();
             }
-        }
+        })?;
         io::copy(&mut tar.into_inner(), &mut io::sink())?;
         decoder
             .join()
@@ -1406,8 +1403,51 @@ fn parse_content_range(value: &str) -> Option<(u64, u64, u64)> {
     Some((start.parse().ok()?, end.parse().ok()?, total.parse().ok()?))
 }
 
+// Match tar::Archive::unpack's directory ordering while retaining progress
+// and unpack_in path confinement. A directory may be 0555 or even 0000.
+fn unpack_runtime_entries<R: Read>(
+    archive: &mut tar::Archive<R>,
+    staging: &Path,
+    mut progress: impl FnMut(u64),
+) -> anyhow::Result<()> {
+    let mut directories = Vec::new();
+    let mut count = 0;
+    for entry in archive.entries()? {
+        let mut entry = entry?;
+        if entry.header().entry_type().is_dir() {
+            directories.push(entry);
+        } else {
+            anyhow::ensure!(entry.unpack_in(staging)?, "Unsafe runtime archive path");
+        }
+        count += 1;
+        progress(count);
+    }
+    // Children before parents, preserving original modes without blocking writes.
+    directories.sort_by(|a, b| b.path_bytes().cmp(&a.path_bytes()));
+    for mut directory in directories {
+        anyhow::ensure!(directory.unpack_in(staging)?, "Unsafe runtime archive path");
+    }
+    Ok(())
+}
+
+// Only used on disposable staging trees, after any extraction writer is joined.
+// Do not follow symlinks or change permissions on the active/user rootfs.
+fn make_staging_removable(path: &Path) -> anyhow::Result<()> {
+    let meta = fs::symlink_metadata(path)?;
+    if !meta.is_dir() || meta.file_type().is_symlink() { return Ok(()); }
+    #[cfg(unix)] {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(meta.permissions().mode() | 0o700))?;
+    }
+    for entry in fs::read_dir(path)? {
+        make_staging_removable(&entry?.path())?;
+    }
+    Ok(())
+}
+
 fn reset_staging(staging: &Path) -> anyhow::Result<()> {
     if path_exists(staging) {
+        make_staging_removable(staging)?;
         remove_path_synced(staging)?;
     }
     fs::create_dir_all(staging)?;
@@ -1637,10 +1677,9 @@ impl StreamingExtract {
                     hash: Sha256::new(),
                 });
                 let mut tar = tar::Archive::new(reader);
-                for entry in tar.entries()? {
-                    anyhow::ensure!(entry?.unpack_in(&staging)?, "Unsafe runtime archive path");
-                    count.fetch_add(1, Ordering::Relaxed);
-                }
+                unpack_runtime_entries(&mut tar, &staging, |entries| {
+                    count.store(entries, Ordering::Relaxed);
+                })?;
                 io::copy(&mut tar.into_inner(), &mut io::sink())?;
                 let mut hashing = decoder
                     .join()
@@ -1835,6 +1874,42 @@ fn replace_atomic(temporary: &Path, destination: &Path) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[cfg(unix)]
+    fn read_only_parent_extracts_before_restoring_modes_and_can_retry() {
+        use std::os::unix::fs::PermissionsExt;
+        let temp = tempfile::tempdir().unwrap();
+        let staging = temp.path().join("staging");
+        fs::create_dir(&staging).unwrap();
+        let mut builder = tar::Builder::new(Vec::new());
+        for (path, mode) in [("etc/bluetooth", 0o555), ("etc/bluetooth/nested", 0o500)] {
+            let mut h = tar::Header::new_gnu();
+            h.set_entry_type(tar::EntryType::Directory);
+            h.set_mode(mode); h.set_size(0); h.set_cksum();
+            builder.append_data(&mut h, path, io::empty()).unwrap();
+        }
+        let mut h = tar::Header::new_gnu();
+        h.set_mode(0o644); h.set_size(6); h.set_cksum();
+        builder.append_data(&mut h, "etc/bluetooth/nested/network.conf", &b"config"[..]).unwrap();
+        let bytes = builder.into_inner().unwrap();
+        let mut archive = tar::Archive::new(&bytes[..]);
+        unpack_runtime_entries(&mut archive, &staging, |_| {}).unwrap();
+        assert_eq!(fs::read(staging.join("etc/bluetooth/nested/network.conf")).unwrap(), b"config");
+        assert_eq!(fs::metadata(staging.join("etc/bluetooth")).unwrap().permissions().mode() & 0o777, 0o555);
+        assert_eq!(fs::metadata(staging.join("etc/bluetooth/nested")).unwrap().permissions().mode() & 0o777, 0o500);
+        let outside = temp.path().join("outside");
+        fs::create_dir(&outside).unwrap();
+        fs::write(outside.join("keep"), b"keep").unwrap();
+        fs::set_permissions(&outside, fs::Permissions::from_mode(0o500)).unwrap();
+        std::os::unix::fs::symlink(&outside, staging.join("external-link")).unwrap();
+        reset_staging(&staging).unwrap();
+        assert!(fs::read_dir(&staging).unwrap().next().is_none());
+        assert_eq!(fs::metadata(&outside).unwrap().permissions().mode() & 0o777, 0o500);
+        assert_eq!(fs::read(outside.join("keep")).unwrap(), b"keep");
+        fs::set_permissions(&outside, fs::Permissions::from_mode(0o700)).unwrap();
+    }
+
 
     fn fixture(directory: &Path, version: &str) -> (RuntimeArtifact, PathBuf) {
         let archive = directory.join(format!("{version}.tar.xz"));
