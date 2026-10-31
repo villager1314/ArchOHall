@@ -177,10 +177,22 @@ jobs:
           run-id: 41167326200
           github-token: ${{ github.token }}
           path: previous-apk
+      - name: Restore pinned xbuild executable independently
+        id: xbuild-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: ~/.cargo/bin/x
+          key: archohall2-xbuild-ubuntu24-x64-9dff54c749c60b1eaf07e42b9f4e8de41e85af0a
       - name: Build pinned xbuild
         working-directory: portal
         run: |
           if ! command -v x >/dev/null; then cargo install --path patches/xbuild/xbuild; fi
+      - name: Save pinned xbuild immediately after tool preparation
+        if: success() && steps.xbuild-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: ~/.cargo/bin/x
+          key: ${{ steps.xbuild-cache.outputs.cache-primary-key }}
       - name: Build independent test APK
         working-directory: portal
         env:
