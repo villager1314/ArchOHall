@@ -11,4 +11,7 @@ fi
 export XDG_DATA_DIRS=/opt/archohall-mobile/share:/usr/local/share:/usr/share
 export QML_IMPORT_PATH=/opt/archohall-mobile/lib/qt6/qml
 export QT_PLUGIN_PATH=/opt/archohall-mobile/lib/qt6/plugins
-exec /usr/bin/plasmashell -p org.kde.plasma.mobileshell
+/usr/bin/plasmashell -p org.kde.plasma.mobileshell &
+shell_pid=$!
+trap 'kill -TERM "$shell_pid" 2>/dev/null || true; wait "$shell_pid" 2>/dev/null || true; exit 143' TERM INT
+wait "$shell_pid"

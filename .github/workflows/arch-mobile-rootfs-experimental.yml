@@ -84,7 +84,7 @@ jobs:
           mkdir -p .rootfs-checkpoint
           python3 diagnostics/arch-mobile-rootfs/check-no-build-mounts.py rootfs
           # The private namespace has exited; archive the unmounted guest tree.
-          sudo tar --zstd --numeric-owner --one-file-system \
+          sudo tar --zstd --hard-dereference --numeric-owner --one-file-system \
             --exclude='./dev/*' --exclude='./proc/*' --exclude='./sys/*' \
             --exclude='./run/*' --exclude='./tmp/*' --exclude='./input' --exclude='./output' \
             --exclude='./etc/resolv.conf' --exclude='./var/cache/pacman/pkg/*' \
@@ -106,9 +106,10 @@ jobs:
             rootfs input out .build-cache/pacman overlay 2>&1 | tee out/rootfs-install.log
           python3 scripts/arch-mobile-preflight.py rootfs > out/preflight.json
           python3 diagnostics/arch-mobile-rootfs/check-no-build-mounts.py rootfs
+          sudo python3 diagnostics/arch-mobile-rootfs/normalize-runtime.py rootfs
           # Do not include build mounts or borrowed host resolver settings.
           sudo rm -f rootfs/etc/resolv.conf
-          sudo tar --zstd --numeric-owner --one-file-system \
+          sudo tar --zstd --hard-dereference --numeric-owner --one-file-system \
             --exclude='./dev/*' --exclude='./proc/*' --exclude='./sys/*' \
             --exclude='./run/*' --exclude='./tmp/*' --exclude='./input' --exclude='./output' \
             --exclude='./var/cache/pacman/pkg/*' -cpf out/archohall-arch-mobile-experimental.tar.zst -C rootfs .

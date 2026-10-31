@@ -22,15 +22,35 @@ jobs:
         with:
           path: gpu-payload
           key: archohall2-gpu-v1-${{ hashFiles('diagnostics/archohall2/build-gpu.sh', 'diagnostics/arch-mobile-ci/package-candidate.json') }}
+      - name: Reuse original successful GPU artifact if the binary cache expired
+        if: steps.gpu-cache.outputs.cache-hit != 'true' && endsWith(steps.gpu-cache.outputs.cache-primary-key, '6a57d4d03d5c44d1c738dd81899403a0176982df9634f87e428926397db35d03')
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: archohall2-gpu-41167326200
+          run-id: 41167326200
+          github-token: ${{ github.token }}
+          path: gpu-payload
+      - name: Verify reusable GPU artifact before considering a rebuild
+        id: gpu-ready
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f gpu-payload/archohall2-gpu.tar.zst && -f gpu-payload/archohall2-gpu.sha256 ]]; then
+            (cd gpu-payload && sha256sum -c archohall2-gpu.sha256)
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+          fi
       - name: Restore installed Arch desktop
-        if: steps.gpu-cache.outputs.cache-hit != 'true'
+        if: steps.gpu-ready.outputs.ready != 'true'
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: .rootfs-checkpoint
           key: arch-mobile-desktop-aarch64-v1-d380ba0ef41ef978c443d668202be2ef680ec9a847fd48b718140ead4e2fdaf6
           fail-on-cache-miss: true
       - name: Restore GPU compiler cache
-        if: steps.gpu-cache.outputs.cache-hit != 'true'
+        if: steps.gpu-ready.outputs.ready != 'true'
         id: compiler-cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
@@ -38,7 +58,7 @@ jobs:
           key: archohall2-gpu-ccache-v1-${{ github.run_id }}
           restore-keys: archohall2-gpu-ccache-v1-
       - name: Checkout pinned Portal sources for Mesa patches and DRM shim
-        if: steps.gpu-cache.outputs.cache-hit != 'true'
+        if: steps.gpu-ready.outputs.ready != 'true'
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           repository: Retrorerr/Portal
@@ -46,7 +66,7 @@ jobs:
           path: input/portal
           persist-credentials: false
       - name: Build only the missing Arch GPU component
-        if: steps.gpu-cache.outputs.cache-hit != 'true'
+        if: steps.gpu-ready.outputs.ready != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -193,6 +213,12 @@ jobs:
         with:
           path: ~/.cargo/bin/x
           key: ${{ steps.xbuild-cache.outputs.cache-primary-key }}
+      - name: Check Arch installation and GPU recovery contracts before APK compilation
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/portal/target
+        run: |
+          cargo test --manifest-path diagnostics/archohall2/tests/Cargo.toml --lib
+          python3 diagnostics/archohall2/check-profile.py
       - name: Build independent test APK
         working-directory: portal
         env:

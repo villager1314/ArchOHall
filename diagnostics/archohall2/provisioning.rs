@@ -1421,7 +1421,7 @@ fn parse_content_range(value: &str) -> Option<(u64, u64, u64)> {
 
 // Match tar::Archive::unpack's directory ordering while retaining progress
 // and unpack_in path confinement. A directory may be 0555 or even 0000.
-fn unpack_runtime_entries<R: Read>(
+pub fn unpack_runtime_entries<R: Read>(
     archive: &mut tar::Archive<R>,
     staging: &Path,
     mut progress: impl FnMut(u64),

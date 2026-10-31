@@ -43,7 +43,7 @@ edit('src/core/config.rs','/data/data/app.polarbear/files','/data/data/com.archo
 edit('src/core/config.rs','pub const DESKTOP_USER: &str = "desktop";','pub const DESKTOP_USER: &str = "arch";')
 edit('src/core/config.rs','https://github.com/Retrorerr/Portal#readme','https://github.com/villager1314/ArchOHall#readme')
 edit('src/core/runtime.rs','distro_name: "Debian 13 (Trixie) ARM64".to_string()','distro_name: "Arch Linux ARM + Plasma Mobile".to_string()')
-edit('src/lib.rs','pub mod setup;','pub mod setup;\n        pub mod archohall2;')
+edit('src/lib.rs','pub mod setup;','pub mod setup;\n        pub mod archohall2;\n        pub mod arch_fs;\n        pub mod arch_gpu;')
 setup='src/android/proot/setup.rs'
 function(setup,'fn stages()', '''    vec![
         ("arch-runtime", Box::new(setup_debian_runtime)),
@@ -54,6 +54,9 @@ function(setup,'fn stages()', '''    vec![
             super::archohall2::prepare()
         })))),
     ]''')
+function(setup,'fn simulate_linux_sysdata_stage(', '''    let _ = options;
+    Some(thread::spawn(|| super::arch_fs::sysdata(Path::new(PRODUCTION_FS_ROOT))))''')
+function(setup,'fn setup_machine_id(', '''    Some(thread::spawn(|| super::arch_fs::machine_id(Path::new(PRODUCTION_FS_ROOT))))''')
 function(setup,'pub fn sync_session_runtime_files(','''    super::archohall2::sync(fs_root).expect("Arch session sync failed");''')
 function(setup,'pub fn try_sync_session_runtime_files(','''    let _ = ui_scale;
     super::archohall2::sync(fs_root)''')
@@ -97,9 +100,21 @@ function('src/android/anland/mod.rs','pub fn session_binds()', '''    use crate:
     binds.extend(fake_drm_binds(files));
     binds.extend(fake_pci_binds(files));
     binds''')
-function('src/android/anland/mod.rs','pub fn validate_launch_contract()', '    super::proot::archohall2::verify_gpu()')
+function('src/android/anland/mod.rs','pub fn validate_launch_contract()', '''    anyhow::ensure!(kgsl_available(), "Anland requires an accessible KGSL device");
+    let environment = guest_mesa_env();
+    for (name, expected) in [("MESA_LOADER_DRIVER_OVERRIDE", "kgsl"), ("GALLIUM_DRIVER", "freedreno"), ("FD_FORCE_KGSL", "1"), ("FD_KGSL_ENABLE_DMABUF", "1"), ("TURNIP_KMD", "kgsl"), ("ANLAND", "1"), ("ANLAND_SOCKET", guest_socket_path())] {
+        anyhow::ensure!(environment.iter().any(|(n,v)| n == name && v == expected), "Missing GPU environment {name}={expected}");
+    }
+    super::proot::archohall2::verify_gpu()''')
 # Avoid installing or trialing the Debian graphics downloader at launch.
-edit('src/android/proot/launch.rs','crate::android::proot::mesa_layer::trial_before_launch();','// ArchOHall2 uses the pinned in-guest Arch GPU payload.')
+edit('src/android/proot/launch.rs','crate::android::proot::mesa_layer::trial_before_launch();','''if let Err(error) = crate::android::proot::arch_gpu::before_launch(std::path::Path::new(crate::core::config::PRODUCTION_FS_ROOT)) {
+            LAUNCH_RUNNING.store(false, Ordering::Release);
+            report_failure(&format!("Arch GPU recovery failed: {error:#}"));
+            return;
+        }''')
+edit('src/android/utils/compose_overlay.rs', 'crate::android::proot::mesa_layer::trial_after_desktop_ready();', '''if let Err(error) = crate::android::proot::arch_gpu::confirm(std::path::Path::new(crate::core::config::PRODUCTION_FS_ROOT)) {
+            log::error!("Arch GPU confirmation failed: {error:#}");
+        }''')
 # Clear distribution-specific error labels and obvious visible product strings.
 for name in ('src/android/proot/launch.rs','src/android/proot/setup.rs'):
     q=root/name;s=q.read_text().replace('Debian runtime','Arch runtime').replace('persistent Debian desktop user','Arch desktop user').replace('Portal installed.','ArchOHall2 installed.');q.write_text(s)
