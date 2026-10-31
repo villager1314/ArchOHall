@@ -1,0 +1,207 @@
+name: ArchOHall2 test APK
+on:
+  push:
+    branches: [experiment/portal-arch-mobile-build]
+    paths: ['diagnostics/archohall2/**', '.github/workflows/archohall2-test.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: archohall2-test
+  cancel-in-progress: false
+jobs:
+  gpu:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Restore built Arch GPU payload
+        id: gpu-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: gpu-payload
+          key: archohall2-gpu-v1-${{ hashFiles('diagnostics/archohall2/build-gpu.sh', 'diagnostics/arch-mobile-ci/package-candidate.json') }}
+      - name: Restore installed Arch desktop
+        if: steps.gpu-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: .rootfs-checkpoint
+          key: arch-mobile-desktop-aarch64-v1-d380ba0ef41ef978c443d668202be2ef680ec9a847fd48b718140ead4e2fdaf6
+          fail-on-cache-miss: true
+      - name: Restore GPU compiler cache
+        if: steps.gpu-cache.outputs.cache-hit != 'true'
+        id: compiler-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: input/ccache
+          key: archohall2-gpu-ccache-v1-${{ github.run_id }}
+          restore-keys: archohall2-gpu-ccache-v1-
+      - name: Checkout pinned Portal sources for Mesa patches and DRM shim
+        if: steps.gpu-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: Retrorerr/Portal
+          ref: 9dff54c749c60b1eaf07e42b9f4e8de41e85af0a
+          path: input/portal
+          persist-credentials: false
+      - name: Build only the missing Arch GPU component
+        if: steps.gpu-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p rootfs input/ccache gpu-payload package-cache
+          (cd .rootfs-checkpoint && sha256sum -c SHA256SUMS)
+          sudo tar --zstd --numeric-owner -xpf .rootfs-checkpoint/desktop.tar.zst -C rootfs
+          sudo chown root:root rootfs
+          sudo cp -L /etc/resolv.conf rootfs/etc/resolv.conf
+          cp diagnostics/archohall2/build-gpu.sh input/install-dependencies.sh
+          cp diagnostics/arch-mobile-rootfs/verify-packages.py diagnostics/arch-mobile-ci/package-candidate.json input/
+          git clone --depth 1 --branch mesa-26.3.0-devel-20260824 https://github.com/lfdevs/mesa-for-android-container.git input/mesa
+          test "$(git -C input/mesa rev-parse HEAD)" = 98f3d6229d61452cef80f8563af7c56ae599dc14
+          sudo unshare --mount --pid --fork --kill-child --propagation private \
+            /bin/bash diagnostics/arch-mobile-rootfs/run-in-namespace.sh \
+            rootfs input gpu-payload package-cache dependencies 2>&1 | tee gpu-payload/build.log
+          python3 diagnostics/arch-mobile-rootfs/check-no-build-mounts.py rootfs
+      - name: Save GPU compiler cache even on failure
+        if: always() && steps.compiler-cache.outcome == 'success'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: input/ccache
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
+      - name: Save completed GPU payload
+        if: success() && steps.gpu-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: gpu-payload
+          key: ${{ steps.gpu-cache.outputs.cache-primary-key }}
+      - name: Upload GPU component and logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: archohall2-gpu-${{ github.run_id }}
+          path: |
+            gpu-payload/*.tar.zst
+            gpu-payload/*.sha256
+            gpu-payload/*.txt
+            gpu-payload/*.log
+          retention-days: 14
+  apk:
+    needs: gpu
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: Retrorerr/Portal
+          ref: 9dff54c749c60b1eaf07e42b9f4e8de41e85af0a
+          path: portal
+          persist-credentials: false
+      - name: Reuse successful Arch rootfs (never rebuild)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: arch-mobile-rootfs-experimental-41166047320
+          run-id: 41166047320
+          github-token: ${{ github.token }}
+          path: runtime
+      - name: Download matching Arch GPU component
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: archohall2-gpu-${{ github.run_id }}
+          path: gpu
+      - name: Prepare ArchOHall2 source and runtime manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 diagnostics/archohall2/prepare-portal.py portal
+          cp gpu/archohall2-gpu.tar.zst portal/assets/
+          awk '{print $1}' gpu/archohall2-gpu.sha256 > portal/assets/archohall2-gpu.sha256
+          python3 diagnostics/archohall2/prepare-runtime.py runtime portal/assets/archohall2-runtime.json
+          cp portal/assets/archohall2-runtime.json runtime/
+          # Distribute corresponding profile/source with the experimental APK.
+          tar -cJf runtime/ArchOHall2-profile-source.tar.xz diagnostics/archohall2 diagnostics/arch-mobile-ci .github/workflows/archohall2-test.yml
+      - name: Publish separate experimental runtime download
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag=archohall2-runtime-20261031-1
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --target "$GITHUB_SHA" --prerelease \
+              --title 'ArchOHall2 experimental Arch runtime' \
+              --notes 'Reused Arch ARM + Plasma Mobile rootfs and KWin 6.8.2 Anland build. Experimental; not device validated. Separate from Portal and existing ArchOHall.'
+          fi
+          gh release upload "$tag" runtime/archohall-arch-mobile-experimental.tar.zst runtime/archohall2-runtime.json runtime/ArchOHall2-profile-source.tar.xz --clobber
+      - name: Install host build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm libssl-dev pkg-config ninja-build
+          rustup target add aarch64-linux-android
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          gradle-version: '8.14.3'
+      - name: Restore Rust and Android build caches
+        id: rust-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/x
+            ~/.cache/x
+            portal/target
+          key: archohall2-android-v1-${{ hashFiles('portal/Cargo.lock') }}-${{ github.run_id }}
+          restore-keys: archohall2-android-v1-${{ hashFiles('portal/Cargo.lock') }}-
+      - name: Build pinned xbuild
+        working-directory: portal
+        run: |
+          if ! command -v x >/dev/null; then cargo install --path patches/xbuild/xbuild; fi
+      - name: Build independent test APK
+        working-directory: portal
+        env:
+          CARGO_PROFILE_RELEASE_LTO: 'false'
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: '16'
+        run: x build --platform=android --arch=arm64 --format=apk
+      - name: Collect and verify APK identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apk-out
+          apk=$(find portal/target/x -path '*/outputs/apk/*' -name '*.apk' -print -quit)
+          test -n "$apk"
+          cp "$apk" apk-out/ArchOHall2-test.apk
+          python3 diagnostics/archohall2/check-apk.py apk-out/ArchOHall2-test.apk
+          sha256sum apk-out/ArchOHall2-test.apk > apk-out/SHA256SUMS
+      - name: Save incremental Android cache after success or failure
+        if: always() && steps.rust-cache.outcome == 'success'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/x
+            ~/.cache/x
+            portal/target
+          key: ${{ steps.rust-cache.outputs.cache-primary-key }}
+      - name: Upload test APK and manifest
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ArchOHall2-test-${{ github.run_id }}
+          path: |
+            apk-out/
+            portal/assets/archohall2-runtime.json
+          retention-days: 14
