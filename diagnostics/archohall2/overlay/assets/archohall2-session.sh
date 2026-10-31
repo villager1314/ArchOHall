@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 export HOME=/home/arch USER=arch LOGNAME=arch
-export XDG_RUNTIME_DIR=/run/user/1000
+export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 export XDG_CURRENT_DESKTOP=KDE XDG_SESSION_DESKTOP=KDE XDG_SESSION_TYPE=wayland
 export PLASMA_PLATFORM=phone XDG_MENU_PREFIX=plasma-
 export QT_QPA_PLATFORM=wayland QSG_RHI_BACKEND=opengl

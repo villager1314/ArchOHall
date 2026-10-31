@@ -34,6 +34,7 @@ pub fn sync(root: &Path) -> anyhow::Result<()> {
         "usr/local/bin/archohall2-gpu-check",
         include_str!("../../../assets/archohall2-gpu-check.sh"),
     )?;
+    executable(root, "usr/local/bin/archohall2-prepare", include_str!("../../../assets/archohall2-prepare.sh"))?;
     super::arch_fs::directory(root, "etc/archohall2", 0o755)?;
     let scale = root.join("etc/archohall2/output-scale");
     if !scale.exists() {
@@ -45,18 +46,14 @@ pub fn sync(root: &Path) -> anyhow::Result<()> {
 pub fn prepare() -> anyhow::Result<()> {
     let root = Path::new(PRODUCTION_FS_ROOT);
     sync(root)?;
-    let result = PRootRuntime::active().execute(ProcessSpec::new(
-        "test \"$(id -u arch)\" = 1000 && test \"$(id -g arch)\" = 1000 && \
-         chmod 0644 /etc/passwd /etc/group && \
-         install -d -m 0700 -o 1000 -g 1000 /run/user/1000 /var/lib/localdesktop/session && \
-         (test -f /home/arch/.archohall2-owned || \
-          (chown -R 1000:1000 /home/arch && touch /home/arch/.archohall2-owned && chown 1000:1000 /home/arch/.archohall2-owned)) && \
-         dbus-uuidgen --ensure=/etc/machine-id"
-    ), None, None);
+    let result = PRootRuntime::active().execute(
+        ProcessSpec::new("/bin/bash /usr/local/bin/archohall2-prepare").with_user("root"),
+        None, None,
+    );
     anyhow::ensure!(
         result.status.success(),
-        "Arch login preparation failed: {}",
-        String::from_utf8_lossy(&result.stderr)
+        "Arch login preparation failed ({}): stdout={} stderr={}",
+        result.status, String::from_utf8_lossy(&result.stdout), String::from_utf8_lossy(&result.stderr)
     );
     Ok(())
 }

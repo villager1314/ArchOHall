@@ -77,3 +77,17 @@ Run these before compiling the APK. The APK workflow includes both checks and
 retains the existing cache keys. If the matching GPU binary cache expired, it first tries the original successful GPU artifact (run 41167326200), verifies its checksum, and builds only if neither reusable source is available. Future rootfs packaging normalization only runs
 when the rootfs workflow is explicitly built later; it does not modify the
 already released runtime or force existing users to download another image.
+
+## Device follow-up: guest account preparation
+
+The diagnostic export `localdesktop-diagnostics-1793437512356.zip` confirms that
+sysdata and machine-id now complete, followed by a nonzero guest preparation
+exit with no stderr. The previous compound shell command required UID and GID
+1000 even though the rootfs recipe uses `useradd arch` without explicit IDs.
+The export does not report the actual account IDs, so this is a confirmed code
+assumption defect, not proof that this device's arch account is specifically 1001.
+Preparation now reads the existing account's numeric IDs, uses them for ownership
+and its private runtime directory, and reports stage, exit status, stdout and
+stderr. The session computes the same runtime directory from its current UID.
+Checks cover IDs 1000 and 1001 and rejection of a root-valued desktop identity.
+No account renumbering, image replacement or GPU rebuild is required.
