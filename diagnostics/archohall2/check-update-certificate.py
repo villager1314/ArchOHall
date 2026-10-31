@@ -5,7 +5,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-previous = next(Path(sys.argv[1]).rglob('ArchOHall2-test.apk'))
+previous = next(Path(sys.argv[1]).rglob('*.apk'))
 current = Path(sys.argv[2])
 roots = [os.getenv('ANDROID_HOME', ''), '/usr/local/lib/android/sdk', str(Path.home()/'.cache/x')]
 tools = [p for root in roots if root for p in glob.glob(root+'/**/apksigner', recursive=True) if os.access(p, os.X_OK)]

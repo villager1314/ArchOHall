@@ -1416,6 +1416,8 @@ fn unpack_runtime_entries<R: Read>(
         let mut entry = entry?;
         if entry.header().entry_type().is_dir() {
             directories.push(entry);
+        } else if entry.header().entry_type().is_hard_link() {
+            unpack_hardlink_as_file(&entry, staging)?;
         } else {
             anyhow::ensure!(entry.unpack_in(staging)?, "Unsafe runtime archive path");
         }
@@ -1426,6 +1428,50 @@ fn unpack_runtime_entries<R: Read>(
     directories.sort_by(|a, b| b.path_bytes().cmp(&a.path_bytes()));
     for mut directory in directories {
         anyhow::ensure!(directory.unpack_in(staging)?, "Unsafe runtime archive path");
+    }
+    Ok(())
+}
+
+// Android untrusted_app SELinux policy can deny link(2) even within app data.
+// Materialize archive hardlinks as independent files; never relax host policy.
+fn unpack_hardlink_as_file<R: Read>(entry: &tar::Entry<'_, R>, staging: &Path) -> anyhow::Result<()> {
+    use std::io::{Seek, SeekFrom};
+    use std::path::Component;
+    let target = entry.link_name()?.ok_or_else(|| anyhow::anyhow!("Hardlink target missing"))?;
+    anyhow::ensure!(target.components().all(|c| matches!(c, Component::Normal(_) | Component::CurDir)), "Unsafe runtime hardlink target");
+    let base = staging.canonicalize()?;
+    let source = base.join(&target).canonicalize()?;
+    anyhow::ensure!(source.starts_with(&base), "Runtime hardlink target escapes staging");
+    let input = fs::File::open(&source)?;
+    let metadata = input.metadata()?;
+    anyhow::ensure!(metadata.is_file(), "Runtime hardlink target is not a regular file");
+    let path = entry.path()?.into_owned();
+    anyhow::ensure!(path.components().all(|c| matches!(c, Component::Normal(_) | Component::CurDir)), "Unsafe runtime hardlink path");
+    if let Ok(existing) = base.join(&path).canonicalize() {
+        anyhow::ensure!(existing != source, "Self-referential runtime hardlink");
+    }
+    // Let tar::unpack_in retain its destination/symlink confinement checks.
+    // Spool a single regular entry to disk, avoiding a file-sized RAM allocation.
+    let mut temporary = tempfile::tempfile_in(staging)?;
+    {
+        let mut builder = tar::Builder::new(&mut temporary);
+        let mut header = tar::Header::new_gnu();
+        header.set_entry_type(tar::EntryType::Regular);
+        header.set_size(metadata.len());
+        header.set_mode(entry.header().mode()?);
+        header.set_mtime(entry.header().mtime().unwrap_or(0));
+        #[cfg(unix)] {
+            use std::os::unix::fs::PermissionsExt;
+            header.set_mode(metadata.permissions().mode() & 0o777);
+        }
+        header.set_cksum();
+        builder.append_data(&mut header, &path, input)?;
+        builder.finish()?;
+    }
+    temporary.seek(SeekFrom::Start(0))?;
+    let mut regular_archive = tar::Archive::new(temporary);
+    for item in regular_archive.entries()? {
+        anyhow::ensure!(item?.unpack_in(staging)?, "Unsafe runtime hardlink destination");
     }
     Ok(())
 }
@@ -1874,6 +1920,47 @@ fn replace_atomic(temporary: &Path, destination: &Path) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[cfg(unix)]
+    fn archive_hardlinks_become_independent_files() {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+        let temp = tempfile::tempdir().unwrap();
+        let mut builder = tar::Builder::new(Vec::new());
+        let mut h = tar::Header::new_gnu();
+        h.set_mode(0o755); h.set_size(4); h.set_cksum();
+        builder.append_data(&mut h, "usr/lib/getconf/XBS5_LP64_OFF64", &b"test"[..]).unwrap();
+        for (path, target) in [("usr/lib/getconf/POSIX_V7_LP64_OFF64", "./usr/lib/getconf/XBS5_LP64_OFF64"), ("usr/lib/getconf/alias2", "usr/lib/getconf/POSIX_V7_LP64_OFF64")] {
+            let mut h = tar::Header::new_gnu();
+            h.set_entry_type(tar::EntryType::Link); h.set_size(0); h.set_mode(0o755); h.set_link_name(target).unwrap(); h.set_cksum();
+            builder.append_data(&mut h, path, io::empty()).unwrap();
+        }
+        let bytes = builder.into_inner().unwrap();
+        unpack_runtime_entries(&mut tar::Archive::new(&bytes[..]), temp.path(), |_| {}).unwrap();
+        let first=temp.path().join("usr/lib/getconf/XBS5_LP64_OFF64");
+        let alias=temp.path().join("usr/lib/getconf/POSIX_V7_LP64_OFF64");
+        assert_eq!(fs::read(&alias).unwrap(), b"test");
+        assert_ne!(fs::metadata(&first).unwrap().ino(),fs::metadata(&alias).unwrap().ino());
+        assert_eq!(fs::metadata(&alias).unwrap().permissions().mode() & 0o777,0o755);
+        assert_eq!(fs::read(temp.path().join("usr/lib/getconf/alias2")).unwrap(),b"test");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn hardlink_cannot_copy_external_symlink_target() {
+        let temp=tempfile::tempdir().unwrap();
+        let staging=temp.path().join("staging"); fs::create_dir(&staging).unwrap();
+        let external=temp.path().join("private");fs::write(&external,b"private").unwrap();
+        std::os::unix::fs::symlink(&external,staging.join("outside")).unwrap();
+        let mut builder=tar::Builder::new(Vec::new());
+        let mut h=tar::Header::new_gnu();h.set_entry_type(tar::EntryType::Link);h.set_size(0);h.set_mode(0o644);h.set_link_name("outside").unwrap();h.set_cksum();
+        builder.append_data(&mut h,"copy",io::empty()).unwrap();
+        let bytes=builder.into_inner().unwrap();
+        assert!(unpack_runtime_entries(&mut tar::Archive::new(&bytes[..]),&staging,|_|{}).is_err());
+        assert!(!staging.join("copy").exists());
+        assert_eq!(fs::read(external).unwrap(),b"private");
+    }
+
 
     #[test]
     #[cfg(unix)]
